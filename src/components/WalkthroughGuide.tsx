@@ -432,7 +432,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
         )}
 
         {/* Action: Open Lab button on Final Step only */}
-        {currentStepIndex === steps.length - 1 && (
+        {currentStepIndex === steps.length - 1 ? (
           <div className="pt-2">
             <button
               onClick={handleTryInEditor}
@@ -445,6 +445,23 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
             <p className="text-[10.5px] text-slate-500 text-center mt-1.5 font-sans">
               You've reached the final step! Open the Lab to write code and test commands in the live simulator.
             </p>
+          </div>
+        ) : (
+          /* Reminder to practice in Lab on non-final steps */
+          <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80 shadow-2xs">
+            <div className="flex items-center space-x-2">
+              <Terminal className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span className="text-[11px] text-indigo-900 font-medium font-sans">
+                Want to try this hands-on? Open the Lab simulator.
+              </span>
+            </div>
+            <button
+              onClick={handleTryInEditor}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-xs shrink-0"
+            >
+              <Play className="w-3 h-3 fill-white" />
+              <span>Open Lab</span>
+            </button>
           </div>
         )}
       </div>
