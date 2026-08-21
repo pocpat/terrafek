@@ -1,0 +1,7 @@
+{
+  "name": "TerrafEK",
+  "description": "TerrafEK: Visual, hands-on interactive Terraform learning platform with full curriculum roadmap, error diagnostics engine, targeted remediation drills, live topology diagrams, and CLI simulator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
