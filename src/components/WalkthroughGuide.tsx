@@ -39,7 +39,20 @@ interface WalkthroughGuideProps {
   onAskAiMentor: (prompt: string) => void;
   workspaceViewMode?: "study" | "split" | "editor_only";
   onToggleWorkspaceViewMode?: (mode: "study" | "split") => void;
+  onStartLab?: (labIndex: number) => void;
 }
+
+// Maps each walkthrough to the lab that practices the same subject.
+// Walkthrough indices → Lab indices (0-based for both).
+const WALKTHROUGH_TO_LAB: Record<number, number> = {
+  0: 0,  // Providers & Terraform Block    → Lab 1: Your First Cloud Resource
+  1: 1,  // Resource Blocks & HCL Anatomy  → Lab 2: Core Terraform Workflow
+  2: 2,  // Variables, Locals & Outputs     → Lab 3: Input Variables & Locals
+  3: 5,  // State & 3-Way Reconciliation    → Lab 6: State Management & Drift Detection
+  4: 1,  // CLI Workflow (init→plan→apply)  → Lab 2: Core Terraform Workflow
+  5: 7,  // Modules & Reusable Architecture  → Lab 8: Terraform Modules & Reusability
+  6: 3,  // Dependency Graphs (DAG)        → Lab 4: Cloud Networking & Resource Graphs
+};
 
 export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   currentWalkthroughIndex,
@@ -48,6 +61,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   onAskAiMentor,
   workspaceViewMode = "study",
   onToggleWorkspaceViewMode,
+  onStartLab,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
@@ -102,6 +116,16 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
     onLoadExampleToEditor(filesToLoad, currentStep.commandToTest || "terraform plan");
     if (onToggleWorkspaceViewMode) {
       onToggleWorkspaceViewMode("split");
+    }
+  };
+
+  // Jump to the lab that practices this walkthrough's subject
+  const handleStartLab = () => {
+    const labIndex = WALKTHROUGH_TO_LAB[currentWalkthroughIndex] ?? 0;
+    if (onStartLab) {
+      onStartLab(labIndex);
+    } else {
+      handleTryInEditor();
     }
   };
 
@@ -431,36 +455,27 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
           </div>
         )}
 
-        {/* Action: Open Lab button on Final Step only */}
-        {currentStepIndex === steps.length - 1 ? (
-          <div className="pt-2">
-            <button
-              onClick={handleTryInEditor}
-              className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center space-x-2 shadow-xs transition-all border border-indigo-700 cursor-pointer"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Open Lab</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-            <p className="text-[10.5px] text-slate-500 text-center mt-1.5 font-sans">
-              You've reached the final step! Open the Lab to write code and test commands in the live simulator.
-            </p>
-          </div>
-        ) : (
-          /* Reminder to practice in Lab on non-final steps */
-          <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/80 shadow-2xs">
+        {/* Action: Practice in Lab — only on the final step of this walkthrough */}
+        {currentStepIndex === steps.length - 1 && (
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 shadow-2xs">
             <div className="flex items-center space-x-2">
               <Terminal className="w-4 h-4 text-indigo-600 shrink-0" />
-              <span className="text-[11px] text-indigo-900 font-medium font-sans">
-                Want to try this hands-on? Open the Lab simulator.
-              </span>
+              <div>
+                <span className="text-[11px] text-indigo-900 font-semibold font-sans block">
+                  Want to try this hands-on?
+                </span>
+                <span className="text-[10px] text-indigo-700/80 font-sans">
+                  Open the Lab to practice what you just learned.
+                </span>
+              </div>
             </div>
             <button
-              onClick={handleTryInEditor}
-              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-xs shrink-0"
+              onClick={handleStartLab}
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors shadow-xs shrink-0"
             >
-              <Play className="w-3 h-3 fill-white" />
+              <Play className="w-3.5 h-3.5 fill-white" />
               <span>Open Lab</span>
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         )}

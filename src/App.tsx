@@ -203,6 +203,7 @@ export default function App() {
                 onAskAiMentor={handleAskAiHint}
                 workspaceViewMode={workspaceViewMode}
                 onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
+                onStartLab={handleStartLabFromDashboard}
               />
             )}
 
@@ -278,6 +279,7 @@ export default function App() {
                       onAskAiMentor={handleAskAiHint}
                       workspaceViewMode={workspaceViewMode}
                       onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
+                      onStartLab={handleStartLabFromDashboard}
                     />
                   </ErrorBoundary>
                 )}
