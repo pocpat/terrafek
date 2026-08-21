@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -53,6 +53,13 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const [isQuizSubmitted, setIsQuizSubmitted] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to top when step or walkthrough changes
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentStepIndex, currentWalkthroughIndex]);
 
   const currentWalkthrough: VisualWalkthrough = WALKTHROUGHS_DATA[currentWalkthroughIndex] || WALKTHROUGHS_DATA[0];
   const steps = currentWalkthrough.steps;
@@ -221,7 +228,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
       </div>
 
       {/* 3. Scrollable Walkthrough Content Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 space-y-4 text-xs bg-[#F5F8FA]">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 space-y-4 text-xs bg-[#F5F8FA]">
         {/* LEARNING SECTION 1: Step Overview & Core Lesson */}
         <div className="bg-[#EBF2F8] border border-[#CADAE8] rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
