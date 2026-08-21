@@ -5,7 +5,6 @@ import {
   Sliders,
   ShieldAlert,
   Terminal,
-  Layers,
   GitGraph,
   ArrowRight,
   ArrowDown,
@@ -25,12 +24,10 @@ import {
   Maximize2,
   Gauge,
   Moon,
-  Sun,
-  Globe
+  Sun
 } from "lucide-react";
 import { motion } from "motion/react";
 import { WalkthroughDiagramType } from "../types/terraform";
-import { MultiCloudCanvasVisualizer } from "./MultiCloudCanvasVisualizer";
 import { ThemeAnimationControls } from "./ThemeAnimationControls";
 import { ExplainableTerm } from "./ExplainableTerm";
 import { safeGetItem, safeSetItem } from "../utils/safeStorage";
@@ -488,7 +485,6 @@ export const WalkthroughDiagrams: React.FC<WalkthroughDiagramsProps> = ({
   initialAnimated = true
 }) => {
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
-  const [viewTab, setViewTab] = useState<"lesson" | "multicloud">("lesson");
   const [themeMode, setThemeMode] = useState<"cyber" | "light">(() => {
     const saved = safeGetItem("tf_diagram_theme");
     return saved === "light" ? "light" : "cyber";
@@ -510,50 +506,9 @@ export const WalkthroughDiagrams: React.FC<WalkthroughDiagramsProps> = ({
 
   const isDark = themeMode === "cyber";
 
-  // Diagram Mode Toggle Toolbar
+  // Theme & Animation Controls
   const renderModeToggle = () => (
     <div className="flex items-center space-x-2">
-      {/* Switch between Concept Diagram and MultiCloud Canvas */}
-      <div className={`flex items-center p-0.5 rounded-lg border shadow-2xs transition-colors ${
-        isDark ? "bg-[#020a16] border-cyan-900/60" : "bg-stone-100 border-stone-200"
-      }`}>
-        <button
-          type="button"
-          onClick={() => setViewTab("lesson")}
-          className={`px-2 py-1 rounded-md text-[10px] font-mono transition-all flex items-center space-x-1 cursor-pointer ${
-            viewTab === "lesson"
-              ? isDark
-                ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 font-bold shadow-2xs"
-                : "bg-white text-stone-900 border border-stone-300 shadow-2xs font-bold"
-              : isDark
-              ? "text-slate-400 hover:text-slate-200 hover:bg-white/10"
-              : "text-stone-500 hover:text-stone-800 hover:bg-stone-200/60"
-          }`}
-          title="Lesson Model: Visual step-by-step concept diagram explaining this specific lab's Terraform blocks"
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Lesson</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewTab("multicloud")}
-          className={`px-2 py-1 rounded-md text-[10px] font-mono transition-all flex items-center space-x-1 cursor-pointer ${
-            viewTab === "multicloud"
-              ? isDark
-                ? "bg-purple-500/25 text-purple-300 border border-purple-400/50 font-bold shadow-[0_0_8px_rgba(155,89,245,0.4)]"
-                : "bg-purple-600 text-white font-bold shadow-2xs"
-              : isDark
-              ? "text-slate-400 hover:text-slate-200 hover:bg-white/10"
-              : "text-stone-500 hover:text-stone-800 hover:bg-stone-200/60"
-          }`}
-          title="Multi-Cloud Canvas Simulator: Real-time particle stream & multi-region network simulator"
-        >
-          <Globe className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden sm:inline">Multi-Cloud</span>
-        </button>
-      </div>
-
-      {/* Shared Theme & Animation Icon Controls */}
       <ThemeAnimationControls
         themeMode={themeMode}
         onToggleTheme={toggleTheme}
@@ -563,25 +518,7 @@ export const WalkthroughDiagrams: React.FC<WalkthroughDiagramsProps> = ({
     </div>
   );
 
-  // If Multi-Cloud Simulator Tab is chosen, render the Canvas Visualizer
-  if (viewTab === "multicloud") {
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between pb-1">
-          <div className="flex items-center space-x-1.5">
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-xs font-serif font-bold text-slate-800">
-              Multi-Cloud IaC Interactive Simulator Engine
-            </span>
-          </div>
-          {renderModeToggle()}
-        </div>
-        <MultiCloudCanvasVisualizer />
-      </div>
-    );
-  }
-
-  // Otherwise render the specific lesson concept model
+  // Render the specific lesson concept model
   switch (type) {
     case "provider_flow":
       return (
