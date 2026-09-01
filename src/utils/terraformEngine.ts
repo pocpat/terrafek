@@ -55,42 +55,152 @@ export function formatHclString(content: string): string {
   return formattedLines.join("\n");
 }
 
-export function runTerraformValidate(codeMap: Record<string, string>): { valid: boolean; errors: string[] } {
+export interface ValidationError {
+  message: string;       // technical message (existing behavior)
+  line?: number;         // 1-indexed line number in the file
+  fileName?: string;     // which file the error is in
+  eli5?: string;         // beginner-friendly explanation
+  fixHint?: string;      // what to change
+  severity?: "error" | "warning";
+}
+
+export function runTerraformValidate(codeMap: Record<string, string>): { valid: boolean; errors: string[]; detailedErrors: ValidationError[] } {
   const errors: string[] = [];
+  const detailedErrors: ValidationError[] = [];
   const parsed = parseHclCode(codeMap);
 
   if (parsed.errors.length > 0) {
-    errors.push(...parsed.errors);
+    parsed.errors.forEach((e) => {
+      errors.push(e);
+      detailedErrors.push({ message: e, severity: "error" });
+    });
   }
+
+  // Helper: find the line number of a resource block in a specific file
+  const findResourceLine = (fileName: string, resType: string, resName: string): number | undefined => {
+    const content = codeMap[fileName] || "";
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(`resource "${resType}" "${resName}"`)) {
+        return i + 1; // 1-indexed
+      }
+    }
+    return undefined;
+  };
+
+  // Helper: find the line number of a specific attribute within a resource block
+  const findAttributeLine = (fileName: string, resType: string, resName: string, attrName: string): number | undefined => {
+    const content = codeMap[fileName] || "";
+    const lines = content.split("\n");
+    let inResource = false;
+    let braceDepth = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes(`resource "${resType}" "${resName}"`)) {
+        inResource = true;
+      }
+      if (inResource) {
+        if (line.includes("{")) braceDepth++;
+        if (line.includes("}")) braceDepth--;
+        // Check for the attribute (e.g. "bucket =", "cidr_block =")
+        const attrRegex = new RegExp(`\\b${attrName}\\s*[=:]`);
+        if (attrRegex.test(line)) {
+          return i + 1;
+        }
+        if (braceDepth <= 0 && i > 0) {
+          // We've exited the resource block without finding the attribute
+          // Return the line of the closing brace as the "where it's missing" line
+          return i + 1;
+        }
+      }
+    }
+    return findResourceLine(fileName, resType, resName);
+  };
 
   // Check for duplicate resource IDs
   const idSet = new Set<string>();
   parsed.resources.forEach((res) => {
     if (idSet.has(res.id)) {
-      errors.push(`Duplicate resource configuration: "${res.id}" is declared multiple times.`);
+      const msg = `Duplicate resource configuration: "${res.id}" is declared multiple times.`;
+      errors.push(msg);
+      detailedErrors.push({
+        message: msg,
+        severity: "error",
+        eli5: `You declared the same resource "${res.id}" twice. Each resource must have a unique type and name combination.`,
+        fixHint: `Remove the duplicate "${res.id}" block — keep only one.`,
+      });
     }
     idSet.add(res.id);
   });
 
   // Check required provider blocks or resource types
   parsed.resources.forEach((res) => {
+    const fileName = res.fileOrigin || "main.tf";
+
     if (res.type === "aws_s3_bucket" && !res.attributes.bucket && !res.attributes.bucket_prefix) {
-      errors.push(`Warning: resource "${res.id}" recommended to have "bucket" or "bucket_prefix" argument.`);
+      const msg = `Warning: resource "${res.id}" recommended to have "bucket" or "bucket_prefix" argument.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, "bucket");
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "warning",
+        eli5: `Your S3 bucket "${res.name}" is missing the "bucket" argument. This is the name of your bucket in AWS. Check: did you write "bucket =" (with an equals sign)? A common mistake is using a colon (:) instead of =, or misspelling "bucket".`,
+        fixHint: `Add bucket = "your-bucket-name" inside the resource block, or check that you used = and not :`,
+      });
     }
     if (res.type === "aws_vpc" && !res.attributes.cidr_block) {
-      errors.push(`Missing required argument: "cidr_block" is required for "${res.id}".`);
+      const msg = `Missing required argument: "cidr_block" is required for "${res.id}".`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, "cidr_block");
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your VPC "${res.name}" needs a "cidr_block" — this is the IP address range for your network, like "10.0.0.0/16". Without it, AWS doesn't know what network range to create.`,
+        fixHint: `Add cidr_block = "10.0.0.0/16" inside the resource block`,
+      });
     }
     if (res.type === "aws_subnet" && (!res.attributes.vpc_id || !res.attributes.cidr_block)) {
-      errors.push(`Missing required arguments for "${res.id}": "vpc_id" and "cidr_block" are required.`);
+      const missing: string[] = [];
+      if (!res.attributes.vpc_id) missing.push("vpc_id");
+      if (!res.attributes.cidr_block) missing.push("cidr_block");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your subnet "${res.name}" is missing: ${missing.join(", ")}. A subnet needs to know which VPC it belongs to (vpc_id) and its IP range (cidr_block).`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
     }
     if (res.type === "aws_instance" && (!res.attributes.ami || !res.attributes.instance_type)) {
-      errors.push(`Missing required arguments for "${res.id}": "ami" and "instance_type" are required.`);
+      const missing: string[] = [];
+      if (!res.attributes.ami) missing.push("ami");
+      if (!res.attributes.instance_type) missing.push("instance_type");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your EC2 instance "${res.name}" is missing: ${missing.join(", ")}. An EC2 needs an AMI (operating system image) and an instance_type (size like "t3.micro").`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
     }
   });
 
   return {
     valid: errors.length === 0,
     errors,
+    detailedErrors,
   };
 }
 

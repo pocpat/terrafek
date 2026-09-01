@@ -8,6 +8,7 @@ import {
   applyTerraform,
   destroyTerraform,
   evaluateConsoleExpression,
+  type ValidationError,
 } from "../utils/terraformEngine";
 import { parseHclCode } from "../utils/hclParser";
 import {
@@ -33,8 +34,8 @@ export interface TerraformSessionState {
   setTerminalLogs: React.Dispatch<React.SetStateAction<TerminalCommandLog[]>>;
   isExecuting: boolean;
   parsedData: ReturnType<typeof parseHclCode>;
-  validationStatus: { valid: boolean; errors: string[] } | null;
-  setValidationStatus: React.Dispatch<React.SetStateAction<{ valid: boolean; errors: string[] } | null>>;
+  validationStatus: { valid: boolean; errors: string[]; detailedErrors?: ValidationError[] } | null;
+  setValidationStatus: React.Dispatch<React.SetStateAction<{ valid: boolean; errors: string[]; detailedErrors?: ValidationError[] } | null>>;
   activeRightTab: ActiveTabMode;
   setActiveRightTab: React.Dispatch<React.SetStateAction<ActiveTabMode>>;
   addTerminalLog: (command: string, output: string, isError?: boolean) => void;
@@ -294,6 +295,9 @@ any changes that are required for your infrastructure.`;
         setIsExecuting(true);
         setTimeout(() => {
           setIsExecuting(false);
+          // Run validation first so semantic errors show in the editor
+          const validateResult = runTerraformValidate(filesRef.current);
+          setValidationStatus(validateResult);
           const plan = runTerraformPlan(filesRef.current, tfStateRef.current);
           addTerminalLog(cmd, plan.outputLog);
         }, 400);

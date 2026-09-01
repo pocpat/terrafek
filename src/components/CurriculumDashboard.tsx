@@ -28,6 +28,7 @@ import {
 import { LABS_DATA } from "../data/labsData";
 import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "../data/remediationDrillsData";
+import { CURRICULUM_ORDER } from "../data/curriculumSequence";
 import {
   LoggedErrorEvent,
   SkillDomainAnalysis,
@@ -39,6 +40,7 @@ import terrafekLogo from "../assets/images/terrafek_vibrant_icon_1787272277132.j
 
 interface CurriculumDashboardProps {
   completedLabIds: string[];
+  completedWalkthroughIds: string[];
   currentLabIndex?: number;
   currentWalkthroughIndex: number;
   totalXp: number;
@@ -56,6 +58,7 @@ interface CurriculumDashboardProps {
 
 export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   completedLabIds,
+  completedWalkthroughIds,
   currentLabIndex = 0,
   currentWalkthroughIndex,
   totalXp,
@@ -115,30 +118,32 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
     }
   };
 
-  // Group curriculum into 3 progressive phases
-  const phase1Items = [
-    { type: "walkthrough" as const, index: 0, title: WALKTHROUGHS_DATA[0].title, subtitle: WALKTHROUGHS_DATA[0].subtitle, mins: 5, category: "Foundations" },
-    { type: "walkthrough" as const, index: 1, title: WALKTHROUGHS_DATA[1].title, subtitle: WALKTHROUGHS_DATA[1].subtitle, mins: 6, category: "Foundations" },
-    { type: "lab" as const, index: 0, lab: LABS_DATA[0] },
-    { type: "walkthrough" as const, index: 2, title: WALKTHROUGHS_DATA[2].title, subtitle: WALKTHROUGHS_DATA[2].subtitle, mins: 6, category: "Configuration" },
-    { type: "lab" as const, index: 1, lab: LABS_DATA[1] }
-  ];
+  // Build phase arrays from the single source-of-truth curriculum sequence.
+  // This ensures the Dashboard phase cards always match the recommendation logic.
+  const buildPhaseItems = (phaseNum: 1 | 2 | 3) =>
+    CURRICULUM_ORDER.filter((item) => item.phase === phaseNum).map((item) => {
+      if (item.type === "walkthrough") {
+        const wt = WALKTHROUGHS_DATA[item.index];
+        return {
+          type: "walkthrough" as const,
+          index: item.index,
+          title: wt.title,
+          subtitle: wt.subtitle,
+          mins: item.estimatedMinutes,
+          category: item.category,
+        };
+      } else {
+        return {
+          type: "lab" as const,
+          index: item.index,
+          lab: LABS_DATA[item.index],
+        };
+      }
+    });
 
-  const phase2Items = [
-    { type: "walkthrough" as const, index: 3, title: WALKTHROUGHS_DATA[3].title, subtitle: WALKTHROUGHS_DATA[3].subtitle, mins: 7, category: "State & Drift" },
-    { type: "lab" as const, index: 2, lab: LABS_DATA[2] },
-    { type: "walkthrough" as const, index: 4, title: WALKTHROUGHS_DATA[4].title, subtitle: WALKTHROUGHS_DATA[4].subtitle, mins: 5, category: "Lifecycle" },
-    { type: "lab" as const, index: 3, lab: LABS_DATA[3] },
-    { type: "walkthrough" as const, index: 6, title: WALKTHROUGHS_DATA[6].title, subtitle: WALKTHROUGHS_DATA[6].subtitle, mins: 6, category: "DAG Graph" },
-    { type: "lab" as const, index: 4, lab: LABS_DATA[4] }
-  ];
-
-  const phase3Items = [
-    { type: "walkthrough" as const, index: 5, title: WALKTHROUGHS_DATA[5].title, subtitle: WALKTHROUGHS_DATA[5].subtitle, mins: 7, category: "Modules" },
-    { type: "lab" as const, index: 5, lab: LABS_DATA[5] },
-    { type: "lab" as const, index: 6, lab: LABS_DATA[6] },
-    { type: "lab" as const, index: 7, lab: LABS_DATA[7] }
-  ];
+  const phase1Items = buildPhaseItems(1);
+  const phase2Items = buildPhaseItems(2);
+  const phase3Items = buildPhaseItems(3);
 
   const handleNextRecommendedClick = () => {
     const next = progressSummary.nextRecommendedLesson;
@@ -147,7 +152,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
     } else if (next.type === "walkthrough") {
       onStartWalkthrough(next.index);
     } else {
-      const drill = REMEDIATION_DRILLS_DATA[0];
+      const drill = REMEDIATION_DRILLS_DATA[next.index] || REMEDIATION_DRILLS_DATA[0];
       onStartDrill(drill);
     }
   };
@@ -176,6 +181,10 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                   <span className="flex items-center space-x-1 text-amber-700 text-xs font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                     <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                     <span>{progressSummary.currentStreakDays} Day Streak</span>
+                  </span>
+                  <span className="flex items-center space-x-1 text-indigo-700 text-xs font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                    <Compass className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Day {progressSummary.totalDaysSinceStart} • {progressSummary.activeDaysCount} active</span>
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 tracking-tight">
@@ -233,7 +242,9 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               >
                 <Play className="w-4 h-4 fill-stone-900" />
                 <span>
-                  {completedLabIds.length === 0 ? "Start Lesson 1 (5m)" : "Continue Learning"}
+                  {completedLabIds.length === 0
+                    ? `Start First ${progressSummary.nextRecommendedLesson.type === "lab" ? "Lab" : progressSummary.nextRecommendedLesson.type === "walkthrough" ? "Lesson" : "Drill"}`
+                    : "Continue Learning"}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -323,13 +334,17 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase1Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
-                    const isPassed = currentWalkthroughIndex > item.index;
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
                     const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
                         key={`p1-wt-${item.index}`}
                         className={`bg-white border rounded-2xl p-4 shadow-2xs transition-all hover:border-stone-400 flex flex-col justify-between space-y-3 ${
-                          isCurrent ? "border-stone-800 ring-1 ring-stone-800/20" : "border-stone-200"
+                          isPassed
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : isCurrent
+                            ? "border-stone-800 ring-1 ring-stone-800/20"
+                            : "border-stone-200"
                         }`}
                       >
                         <div className="space-y-1.5">
@@ -441,12 +456,17 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase2Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
                     const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
                         key={`p2-wt-${item.index}`}
                         className={`bg-white border rounded-2xl p-4 shadow-2xs transition-all hover:border-stone-400 flex flex-col justify-between space-y-3 ${
-                          isCurrent ? "border-stone-800 ring-1 ring-stone-800/20" : "border-stone-200"
+                          isPassed
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : isCurrent
+                            ? "border-stone-800 ring-1 ring-stone-800/20"
+                            : "border-stone-200"
                         }`}
                       >
                         <div className="space-y-1.5">
@@ -468,7 +488,16 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <span className="text-xs text-stone-500 font-mono">{item.category}</span>
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isPassed ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Completed</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{item.category}</span>
+                            )}
+                          </div>
                           <button
                             onClick={() => onStartWalkthrough(item.index)}
                             className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
@@ -538,10 +567,18 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase3Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
+                    const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
                         key={`p3-wt-${item.index}`}
-                        className="bg-white border border-stone-200 rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3"
+                        className={`bg-white border rounded-2xl p-4 shadow-2xs transition-all hover:border-stone-400 flex flex-col justify-between space-y-3 ${
+                          isPassed
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : isCurrent
+                            ? "border-stone-800 ring-1 ring-stone-800/20"
+                            : "border-stone-200"
+                        }`}
                       >
                         <div className="space-y-1.5">
                           <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
@@ -555,7 +592,16 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                           </p>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <span className="text-xs text-stone-500 font-mono">{item.category}</span>
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isPassed ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Completed</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{item.category}</span>
+                            )}
+                          </div>
                           <button
                             onClick={() => onStartWalkthrough(item.index)}
                             className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"

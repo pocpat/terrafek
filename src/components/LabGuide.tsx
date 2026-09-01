@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -14,9 +14,15 @@ import {
   Info,
   BookOpen,
   Terminal,
-  Columns
+  Columns,
+  GraduationCap,
+  RotateCcw,
+  Compass,
+  ArrowLeft,
+  Copy
 } from "lucide-react";
 import { LabDefinition, TerraformStateFile, ParsedResource } from "../types/terraform";
+import { ConfettiOverlay } from "./ConfettiOverlay";
 
 interface LabGuideProps {
   lab: LabDefinition;
@@ -29,6 +35,10 @@ interface LabGuideProps {
   hasNext: boolean;
   onOpenSolution: () => void;
   onAskAiHint: (taskHint: string) => void;
+  onOpenQualityReview?: () => void;
+  onRedoLab?: () => void;
+  onBackToDashboard?: () => void;
+  onLabComplete?: (labId: string) => void;
   isCompleted: boolean;
   workspaceViewMode?: "study" | "split" | "editor_only";
   onToggleWorkspaceViewMode?: (mode: "study" | "split") => void;
@@ -47,6 +57,10 @@ export const LabGuide: React.FC<LabGuideProps> = ({
   hasNext,
   onOpenSolution,
   onAskAiHint,
+  onOpenQualityReview,
+  onRedoLab,
+  onBackToDashboard,
+  onLabComplete,
   isCompleted,
   workspaceViewMode = "study",
   onToggleWorkspaceViewMode,
@@ -55,30 +69,118 @@ export const LabGuide: React.FC<LabGuideProps> = ({
 }) => {
   const [showTakeaways, setShowTakeaways] = useState(true);
   const [activeHintTaskId, setActiveHintTaskId] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  // Evaluate tasks in real-time
-  const taskStatus = lab.tasks.map((task) => {
+  const handleCopy = (text: string) => {
+    // Strip leading/trailing quotes for clean copying
+    const clean = text.replace(/^["']|["']$/g, "");
+    navigator.clipboard.writeText(clean);
+    setCopiedText(clean);
+    setTimeout(() => setCopiedText(null), 1500);
+  };
+
+  // Render task description with copyable code tokens
+  // Detects quoted strings AND bare Terraform code tokens (AMI IDs, resource types, etc.)
+  const renderDescriptionWithCopyChips = (description: string) => {
+    // Match: quoted strings, AMI IDs, instance types (t2/t3/m5.*), CIDR blocks,
+    // AWS resource types (aws_*), regions (us-east-1 etc), and hashicorp source strings
+    const tokenRegex = /("[^"]+"|'[^']+'|ami-[a-z0-9]+|\bt[23]\.\w+|\bm5\.\w+|\b10\.\d+\.\d+\.\d+\/\d+|aws_\w+|us-east-\d|us-west-\d|var\.\w+|local\.\w+|each\.\w+|for_each|cidr_block|vpc_id|subnet_id|instance_type)/g;
+    const parts: string[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = tokenRegex.exec(description)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(description.slice(lastIndex, match.index));
+      }
+      parts.push(match[0]);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < description.length) {
+      parts.push(description.slice(lastIndex));
+    }
+    return parts.map((part, i) => {
+      // Check if this part is a code token (not plain text)
+      const isQuoted = /^"[^"]+"$/.test(part) || /^'[^']+'$/.test(part);
+      const isBareToken = /^(ami-[a-z0-9]+|t[23]\.\w+|m5\.\w+|10\.\d+\.\d+\.\d+\/\d+|aws_\w+|us-east-\d|us-west-\d|var\.\w+|local\.\w+|each\.\w+|for_each|cidr_block|vpc_id|subnet_id|instance_type)$/i.test(part);
+      if (isQuoted || isBareToken) {
+        const inner = isQuoted ? part.slice(1, -1) : part;
+        const isCopied = copiedText === inner;
+        return (
+          <button
+            key={i}
+            onClick={() => handleCopy(inner)}
+            className={`inline-flex items-center font-mono text-[11px] border rounded px-1 py-0.5 mx-0.5 transition-colors cursor-pointer ${
+              isCopied
+                ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                : "bg-stone-100 hover:bg-indigo-50 border-stone-200 hover:border-indigo-300 text-indigo-700"
+            }`}
+            title={`Click to copy: ${inner}`}
+          >
+            {inner}
+          </button>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  // Evaluate tasks in real-time, with sticky validation:
+  // once a task passes, it stays passed even if state changes later
+  const stickyPassed = useRef<boolean[]>(new Array(lab.tasks.length).fill(false));
+  const liveStatus = lab.tasks.map((task) => {
     try {
       return task.validationCheck(codeMap, state, parsedResources);
     } catch {
       return false;
     }
   });
+  // Merge: sticky stays true once set; live can set new trues
+  const taskStatus = liveStatus.map((live, i) => stickyPassed.current[i] || live);
+  // Update sticky ref
+  taskStatus.forEach((s, i) => { if (s) stickyPassed.current[i] = true; });
 
   const completedTasksCount = taskStatus.filter(Boolean).length;
   const allTasksDone = completedTasksCount === lab.tasks.length;
+
+  // Confetti: fire ONLY when ALL tasks are complete (not per-task)
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [confettiMessage, setConfettiMessage] = useState("");
+  const prevAllDone = useRef(false);
+
+  useEffect(() => {
+    if (allTasksDone && !prevAllDone.current) {
+      setConfettiMessage(`+${lab.xp} XP Earned!`);
+      setConfettiTrigger((t) => t + 1);
+      if (onLabComplete) {
+        onLabComplete(lab.id);
+      }
+    }
+    prevAllDone.current = allTasksDone;
+  }, [allTasksDone, lab.xp, lab.id, onLabComplete]);
 
   return (
     <div className="flex flex-col h-full bg-[#FAF9F7] border-r border-stone-200 text-stone-900 overflow-y-auto custom-scrollbar">
       {/* Lab Header Banner */}
       <div className="p-4 sm:p-5 border-b border-stone-200 bg-white shadow-xs">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 border border-stone-200">
+        {/* Top row: left badges (stacked) + right buttons (stacked) */}
+        <div className="flex items-start justify-between mb-2 gap-3">
+          {/* Left: Lab info badges stacked vertically */}
+          <div className="flex flex-col space-y-1.5">
+            {onBackToDashboard && (
+              <button
+                onClick={onBackToDashboard}
+                className="flex items-center space-x-1 px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold transition-colors border border-stone-200 w-fit"
+                title="Back to Course Contents"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Labs</span>
+              </button>
+            )}
+            <span className="text-[11px] font-mono font-semibold px-2 py-1 rounded-md bg-stone-100 text-stone-700 border border-stone-200 w-fit">
               Lab {lab.level} • {lab.category}
             </span>
             <span
-              className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+              className={`text-[11px] font-medium px-2 py-1 rounded-md border w-fit ${
                 lab.difficulty === "Beginner"
                   ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                   : lab.difficulty === "Intermediate"
@@ -90,36 +192,50 @@ export const LabGuide: React.FC<LabGuideProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* Right: action buttons stacked vertically, same size */}
+          <div className="flex flex-col items-stretch space-y-1.5 min-w-[140px]">
+            {showWorkspaceNotes !== undefined && onToggleWorkspaceNotes && workspaceViewMode !== "study" && (
+              <button
+                onClick={onToggleWorkspaceNotes}
+                className={`flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md border text-[11px] font-sans font-medium transition-all cursor-pointer ${
+                  showWorkspaceNotes
+                    ? "bg-stone-900 text-white border-stone-900 font-bold"
+                    : "bg-stone-100 hover:bg-stone-200 border-stone-200 text-stone-700 font-semibold"
+                }`}
+                title="Step-by-step instructions on how to use the workspace panels"
+              >
+                <Compass className="w-3 h-3" />
+                <span>{showWorkspaceNotes ? "Hide Step Guide" : "How to use Lab"}</span>
+              </button>
+            )}
             {workspaceViewMode === "study" ? (
               <button
                 onClick={() => onToggleWorkspaceViewMode?.("split")}
-                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                className="flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold transition-all cursor-pointer"
                 title="Open Code Editor and Visualizer to build this lab"
               >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>Start Lab in Editor →</span>
+                <Terminal className="w-3 h-3" />
+                <span>Start Lab in Editor</span>
               </button>
             ) : (
               <button
                 onClick={() => onToggleWorkspaceViewMode?.("study")}
-                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-stone-100 text-stone-700 text-xs font-medium border border-stone-300 shadow-2xs transition-all cursor-pointer"
+                className="flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold border border-stone-200 transition-all cursor-pointer"
                 title="Close Code Editor & Visualizer to focus purely on reading"
               >
-                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Close Editor (Focus Read)</span>
+                <BookOpen className="w-3 h-3 text-indigo-600" />
+                <span>Focus Reading View</span>
               </button>
             )}
-
-            <div className="flex items-center space-x-1 text-amber-700 text-xs font-mono font-semibold pl-1">
-              <Award className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-center space-x-1 text-amber-700 text-[11px] font-mono font-semibold py-0.5">
+              <Award className="w-3 h-3" />
               <span>+{lab.xp} XP</span>
             </div>
           </div>
         </div>
 
-        <h2 className="font-serif text-lg font-bold text-stone-900 tracking-tight leading-snug">{lab.title}</h2>
-        <p className="text-xs text-stone-600 mt-1 leading-relaxed italic">{lab.subtitle}</p>
+        <h2 className="font-serif text-base font-bold text-stone-900 tracking-tight leading-snug">{lab.title}</h2>
+        <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed italic">{lab.subtitle}</p>
 
         {/* View Mode Context Prompt */}
         <div className="mt-3 p-2.5 rounded-xl bg-indigo-50/80 border border-indigo-100 flex items-center justify-between text-xs">
@@ -140,27 +256,6 @@ export const LabGuide: React.FC<LabGuideProps> = ({
               <span className="text-[11.5px] text-slate-800">
                 🛠️ <strong>Interactive Lab Active:</strong> Edit HCL in the middle panel and test commands in the terminal.
               </span>
-              <div className="flex items-center space-x-2 shrink-0 ml-2">
-                {onToggleWorkspaceNotes && (
-                  <button
-                    onClick={onToggleWorkspaceNotes}
-                    className={`text-[11.5px] font-semibold flex items-center space-x-1 px-2 py-0.5 rounded-md border transition-colors cursor-pointer ${
-                      showWorkspaceNotes
-                        ? "bg-indigo-600 border-indigo-700 text-white"
-                        : "bg-white hover:bg-stone-50 border-stone-300 text-indigo-700"
-                    }`}
-                    title="How to use the 3 workspace panels step-by-step"
-                  >
-                    <span>{showWorkspaceNotes ? "Hide Steps" : "How to use Lab"}</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => onToggleWorkspaceViewMode?.("study")}
-                  className="text-[11.5px] font-medium text-slate-700 hover:text-stone-900 underline underline-offset-2 cursor-pointer"
-                >
-                  Focus Reading View
-                </button>
-              </div>
             </>
           )}
         </div>
@@ -228,7 +323,7 @@ export const LabGuide: React.FC<LabGuideProps> = ({
                       <div>
                         <div className="text-xs font-medium leading-snug font-sans">
                           <span className="text-slate-500 font-mono font-bold mr-1.5">{idx + 1}.</span>
-                          {task.description}
+                          {renderDescriptionWithCopyChips(task.description)}
                         </div>
                       </div>
                     </div>
@@ -260,9 +355,18 @@ export const LabGuide: React.FC<LabGuideProps> = ({
                           <span>Ask AI Mentor</span>
                         </button>
                       </div>
-                      <p className="text-slate-800 font-mono text-[11px] leading-relaxed break-all bg-white p-2 rounded-lg border border-amber-200/90 shadow-2xs">
-                        {task.hint}
-                      </p>
+                      <div className="relative">
+                        <p className="text-slate-800 font-mono text-[11px] leading-relaxed break-all bg-white p-2 pr-8 rounded-lg border border-amber-200/90 shadow-2xs">
+                          {task.hint}
+                        </p>
+                        <button
+                          onClick={() => handleCopy(task.hint)}
+                          className="absolute top-1.5 right-1.5 p-1 rounded-md bg-white border border-stone-200 hover:bg-stone-50 text-stone-500 hover:text-stone-900 transition-colors"
+                          title="Copy hint to clipboard"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -301,7 +405,32 @@ export const LabGuide: React.FC<LabGuideProps> = ({
 
       {/* Lab Action Footer */}
       <div className="p-4 border-t border-stone-200 bg-white flex flex-col space-y-2">
+        {/* Code Quality Review Button — appears when all tasks are done */}
+        {allTasksDone && onOpenQualityReview && (
+          <button
+            id="btn-quality-review"
+            onClick={onOpenQualityReview}
+            className="px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-xs cursor-pointer"
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Review Code Quality</span>
+            <span className="text-[10px] font-mono bg-indigo-800/60 px-1.5 py-0.5 rounded">
+              vs Solution
+            </span>
+          </button>
+        )}
         <div className="flex items-center justify-between space-x-2">
+          {allTasksDone && onRedoLab && (
+            <button
+              id="btn-redo-lab"
+              onClick={onRedoLab}
+              className="px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors flex-1 shadow-xs"
+              title="Reset this lab and try again from scratch"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Do It Again</span>
+            </button>
+          )}
           <button
             id="btn-view-solution"
             onClick={onOpenSolution}
@@ -344,6 +473,13 @@ export const LabGuide: React.FC<LabGuideProps> = ({
           )}
         </div>
       </div>
+
+      {/* Confetti overlay — fires on top of all panels when tasks turn green */}
+      <ConfettiOverlay
+        trigger={confettiTrigger}
+        message={confettiMessage}
+        intensity={allTasksDone ? "lab" : "task"}
+      />
     </div>
   );
 };

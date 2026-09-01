@@ -3,7 +3,7 @@ import { LABS_DATA } from "../data/labsData";
 import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "../data/remediationDrillsData";
 import { RemediationDrill } from "../types/terraform";
-import { safeGetItem, safeGetNumber, safeSetItem } from "../utils/safeStorage";
+import { safeGetNumber, safeSetItem } from "../utils/safeStorage";
 
 // Re-declared here to avoid importing from a .tsx file in a .ts file.
 // These must stay in sync with src/components/Header.tsx.
@@ -27,13 +27,14 @@ export interface NavigationState {
 /**
  * Manages app navigation state: active mode (dashboard/lab/walkthrough/drill/sandbox),
  * current lab/walkthrough/drill indices, and dashboard navigation handlers.
- * Persists mode + indices to localStorage.
+ * Persists lab/walkthrough indices to localStorage (activeMode is NOT persisted).
  */
 export function useNavigation(): NavigationState {
-  const [activeMode, setActiveMode] = useState<AppMode>(() => {
-    const saved = safeGetItem("tf_app_mode");
-    return (saved as AppMode) || "dashboard";
-  });
+  // Always start on the Dashboard so the learner sees a consistent entry point
+  // and consciously chooses Walkthrough vs Lab. Previously this restored the last
+  // active mode from localStorage, which caused the left panel to show a
+  // Walkthrough (First Lesson) when the user expected a Lab (Task Checklist).
+  const [activeMode, setActiveMode] = useState<AppMode>("dashboard");
 
   const [currentWalkthroughIndex, setCurrentWalkthroughIndex] = useState<number>(() => {
     const saved = safeGetNumber("tf_walkthrough_index", 0);
@@ -52,11 +53,14 @@ export function useNavigation(): NavigationState {
   const currentDrill = REMEDIATION_DRILLS_DATA[currentDrillIndex] || REMEDIATION_DRILLS_DATA[0];
 
   // Persist navigation state
+  // NOTE: activeMode is intentionally NOT persisted — the app always opens
+  // on the Dashboard so the learner consciously chooses Walkthrough vs Lab.
+  // This prevents the left-panel confusion where a stale "walkthrough" mode
+  // from a previous session would show a Lesson instead of a Lab Checklist.
   useEffect(() => {
-    safeSetItem("tf_app_mode", activeMode);
     safeSetItem("tf_walkthrough_index", String(currentWalkthroughIndex));
     safeSetItem("tf_lab_index", String(currentLabIndex));
-  }, [activeMode, currentWalkthroughIndex, currentLabIndex]);
+  }, [currentWalkthroughIndex, currentLabIndex]);
 
   return {
     activeMode,

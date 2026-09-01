@@ -91,7 +91,7 @@ resource "aws_s3_bucket" "dr_replica" {
           { label: "source", text: "Specifies the global registry path (e.g. registry.terraform.io/hashicorp/aws)" },
           { label: "version", text: "Pessimistic version constraint (~> 5.40 allows 5.41, but blocks major breaking 6.0)" }
         ],
-        diagramType: "provider_flow",
+        diagramType: "plugin_lifecycle",
         commandToTest: "terraform init",
         quickCheck: {
           question: "When does Terraform download the required provider plugins?",
@@ -139,7 +139,7 @@ resource "aws_s3_bucket" "dr_replica" {
         codeHighlights: [
           { label: "default_tags", text: "Injects standard corporate metadata onto every provisioned resource automatically" }
         ],
-        diagramType: "provider_flow",
+        diagramType: "provider_config_flow",
         commandToTest: "terraform plan",
         quickCheck: {
           question: "What is the best practice for authenticating the AWS provider?",
@@ -184,7 +184,7 @@ resource "aws_s3_bucket" "dr_bucket" {
         codeHighlights: [
           { label: "provider = aws.west", text: "Overrides the default provider and deploys this specific resource to us-west-2" }
         ],
-        diagramType: "provider_flow",
+        diagramType: "provider_alias_routing",
         commandToTest: "terraform plan"
       }
     ]
@@ -246,7 +246,7 @@ resource "aws_instance" "web_server" {
         title: "Anatomy of a Resource Block",
         subtitle: "Deconstructing the HCL block declaration",
         explanation:
-          "Every resource block follows a strict 4-part structure: (1) The block keyword 'resource', (2) The provider-defined Resource Type (e.g. 'aws_instance'), (3) The Local Resource Name (e.g. 'web'), and (4) The Body containing key-value arguments.",
+          "Every resource block follows a strict 4-part structure: (1) The block keyword 'resource', (2) The provider-defined Resource Type (e.g. 'aws_instance'), (3) The Local Resource Name (e.g. 'web'), and (4) The Body containing key-value arguments.\n\nImportant: The Local Name (e.g. \"app_storage\") is just a Terraform-internal variable name — it exists ONLY inside your Terraform code so you can reference this resource elsewhere (e.g. aws_s3_bucket.app_storage.id). It has nothing to do with AWS and AWS never sees it. The 'bucket' argument inside the body (e.g. bucket = \"my-unique-company-vault\") is the REAL name AWS uses to create the actual S3 bucket in the cloud. Two different names, two different purposes.",
         objectives: [
           "Recognize the distinction between Resource Type and Local Resource Name",
           "Identify how Terraform creates a globally unique identifier (e.g. aws_instance.web)",
@@ -270,8 +270,8 @@ resource            "aws_s3_bucket"       "app_storage" {
         fileName: "main.tf",
         codeHighlights: [
           { label: "aws_s3_bucket", text: "The resource type recognized by the AWS provider plugin" },
-          { label: "app_storage", text: "The local identifier used to reference this resource elsewhere in code" },
-          { label: "bucket", text: "An input argument defined in the AWS provider schema" }
+          { label: "app_storage", text: "Local Name: Terraform-only label for referencing this resource in code (see explanation above)" },
+          { label: "bucket", text: "The real AWS bucket name that shows up in the AWS console" }
         ],
         diagramType: "anatomy_breakdown",
         commandToTest: "terraform validate",
@@ -294,7 +294,7 @@ resource            "aws_s3_bucket"       "app_storage" {
         title: "Cross-Resource Referencing & Implicit Dependencies",
         subtitle: "Connecting resources and letting Terraform calculate provisioning order",
         explanation:
-          "When you reference an attribute of one resource inside another (such as setting 'vpc_id = aws_vpc.main.id'), Terraform automatically creates an Implicit Dependency. Terraform knows the VPC must be created before the subnet without requiring manual wait scripts!",
+          "When you reference an attribute of one resource inside another (such as setting 'vpc_id = aws_vpc.main.id'), Terraform automatically creates an Implicit Dependency. Here's where the ID comes from: (1) You write code that says 'create a VPC and call it main'. (2) Terraform asks AWS to create the VPC, and AWS assigns a real cloud ID to it (e.g. vpc-abc123). (3) The reference aws_vpc.main.id tells Terraform to go fetch that assigned real ID and use it here — so the subnet gets linked to the actual VPC that was just created. Terraform knows the VPC must be created first before the subnet, all without manual wait scripts!",
         objectives: [
           "Connect resources using dot notation references",
           "Understand how references generate the Directed Acyclic Graph (DAG)",
@@ -318,7 +318,7 @@ resource "aws_subnet" "public" {
         codeHighlights: [
           { label: "aws_vpc.main.id", text: "Attribute reference creating an automatic dependency edge in the graph" }
         ],
-        diagramType: "anatomy_breakdown",
+        diagramType: "dependency_graph",
         commandToTest: "terraform plan"
       },
       {
@@ -353,8 +353,92 @@ resource "aws_subnet" "public" {
           { label: "for_each", text: "Creates identifiable instances: aws_s3_bucket.departments[\"finance\"], etc." },
           { label: "each.key", text: "The current iteration value from the provided collection" }
         ],
-        diagramType: "anatomy_breakdown",
+        diagramType: "resource_stack",
         commandToTest: "terraform plan"
+      },
+      {
+        id: "resources-4",
+        stepNumber: 4,
+        title: "Required Attributes, Tags & Best Practices",
+        subtitle: "Required arguments, tagging conventions, security group ingress, and list syntax",
+        explanation:
+          "Every resource type has provider-specific REQUIRED attributes — omit them and `terraform plan` fails before any cloud API call. This step covers four habits every AWS resource block should have.\n\n**Tags:** The `tags = { ... }` map labels every resource for the AWS console, cost reports, and filtering. Adopt a convention: `Name` identifies the resource (e.g. \"web-server-prod\"), `Environment` marks the stage (\"production\", \"staging\", \"dev\"), and `ManagedBy = \"Terraform\"` flags IaC-managed resources so manually-built ones stand out.\n\n**Security group ingress:** Each `ingress` block opens one port range and needs four arguments: `from_port`, `to_port`, `protocol`, and `cidr_blocks`. Port 80 = HTTP, port 443 = HTTPS. `cidr_blocks = [\"0.0.0.0/0\"]` means \"allow from any IP\" — fine for a public web server, dangerous for a database.\n\n**List arguments with `[]`:** Some attributes take a LIST, not a single value. `vpc_security_group_ids` is plural because an instance can attach to several security groups, so you wrap values in brackets: `[aws_security_group.web_sg.id]` for one, `[aws_security_group.web_sg.id, aws_security_group.db_sg.id]` for two. The brackets are what make it a list.\n\n**map_public_ip_on_launch:** Set on `aws_subnet`, this controls whether EC2 instances launched in that subnet receive a public IP. `true` for public subnets (internet-facing), `false` for private subnets (databases, internal services).\n\n**description:** Always add a `description` to variable blocks — it documents intent for teammates and surfaces in tooling.",
+        objectives: [
+          "Apply a consistent tag convention (Name, Environment, ManagedBy) to every AWS resource",
+          "Configure security group ingress blocks with from_port, to_port, protocol, and cidr_blocks",
+          "Distinguish list arguments ([] brackets) from single-value arguments",
+          "Choose map_public_ip_on_launch correctly for public vs private subnets"
+        ],
+        keyRules: [
+          "Every AWS resource should carry tags: Name, Environment, and ManagedBy at minimum.",
+          "An ingress block requires from_port, to_port, protocol, and cidr_blocks — all four.",
+          "Attributes ending in _ids (plural) take a list in []: [a], [a, b], or [a, b, c].",
+          "map_public_ip_on_launch = true → public subnet; false → private subnet.",
+          "Always document variables with a description argument."
+        ],
+        codeSnippet: `variable "environment" {
+  type        = string
+  description = "Deployment stage: dev, staging, or production"  # Document intent
+  default     = "dev"
+}
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true  # Public subnet: instances get a public IP
+
+  tags = {
+    Name        = "web-server-\${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_security_group" "web_sg" {
+  name = "web-sg"
+
+  ingress {
+    from_port   = 80             # HTTP
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Allow from any IP
+  }
+
+  ingress {
+    from_port   = 443            # HTTPS
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "web" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.web_sg.id]  # A LIST in []
+}`,
+        fileName: "main.tf",
+        codeHighlights: [
+          { label: "tags = { ... }", text: "Map of key-value labels for organization, cost tracking, and identification" },
+          { label: "ingress { ... }", text: "Opens one port range; needs from_port, to_port, protocol, and cidr_blocks" },
+          { label: "vpc_security_group_ids = [...]", text: "A LIST in brackets — an instance can attach to multiple security groups" },
+          { label: "map_public_ip_on_launch", text: "true = instances get a public IP (public subnet); false = private subnet" }
+        ],
+        diagramType: "best_practice_matrix",
+        commandToTest: "terraform validate",
+        quickCheck: {
+          question: "What does cidr_blocks = [\"0.0.0.0/0\"] mean in a security group ingress block?",
+          options: [
+            "Allow traffic only from inside the VPC",
+            "Allow traffic from any IP address",
+            "Allow traffic from localhost only",
+            "Block all inbound traffic"
+          ],
+          correctIndex: 1,
+          explanation:
+            "\"0.0.0.0/0\" is the CIDR block covering all IPv4 addresses, so the rule permits inbound traffic from anywhere on the internet."
+        }
       }
     ]
   },
@@ -507,7 +591,7 @@ resource "aws_s3_bucket" "logs" {
         codeHighlights: [
           { label: "local.prefix", text: "Accessed using singular 'local.', computed once and reused everywhere" }
         ],
-        diagramType: "variable_pipeline",
+        diagramType: "locals_flow",
         commandToTest: "terraform plan"
       },
       {
@@ -516,7 +600,7 @@ resource "aws_s3_bucket" "logs" {
         title: "Outputs: Exposing Computed Infrastructure Data",
         subtitle: "Returning endpoints, IP addresses, and values to users or CI/CD",
         explanation:
-          "Output values expose information about your infrastructure. They are printed to the terminal after 'terraform apply', queried via 'terraform output', and consumed by parent modules or 'terraform_remote_state' data sources.",
+          "Output values expose information about your infrastructure. They are printed to the terminal after 'terraform apply', queried via 'terraform output', and consumed by parent modules or 'terraform_remote_state' data sources.\n\nWhat happens with sensitive = true? The secret is still saved in your terraform.tfstate file in plaintext — sensitive = true does NOT encrypt it. It only redacts the value from terminal output and logs, replacing it with <sensitive>. Terraform reads the value from the state file normally for plan/apply comparisons. This means the security of your secrets depends on securing the state file itself: use an encrypted remote backend (S3 with encryption) and never commit .tfstate to Git.",
         objectives: [
           "Expose endpoints, DNS records, and generated IDs",
           "Hide sensitive values (passwords, private keys) from terminal logs with 'sensitive = true'",
@@ -541,7 +625,7 @@ output "db_password" {
         codeHighlights: [
           { label: "sensitive = true", text: "Redacts the value in CLI output with <sensitive> to prevent credential leaks" }
         ],
-        diagramType: "variable_pipeline",
+        diagramType: "output_flow",
         commandToTest: "terraform output"
       }
     ]
@@ -616,7 +700,7 @@ output "db_password" {
         codeHighlights: [
           { label: "\"id\": \"i-08a9f24b11cd\"", text: "The physical AWS resource identifier mapped to the HCL address" }
         ],
-        diagramType: "state_reconciliation",
+        diagramType: "state_file_map",
         commandToTest: "terraform state list",
         quickCheck: {
           question: "Why should terraform.tfstate NEVER be committed to a public Git repository?",
@@ -702,7 +786,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.`,
         codeHighlights: [
           { label: "dynamodb_table", text: "Acquires a mutex lock before running commands, preventing concurrent applies" }
         ],
-        diagramType: "state_reconciliation",
+        diagramType: "remote_backend",
         commandToTest: "terraform init"
       }
     ]
@@ -763,7 +847,7 @@ Terraform has been successfully initialized!`,
         codeHighlights: [
           { label: "Installing hashicorp/aws", text: "Fetches binary plugin matching OS architecture into .terraform" }
         ],
-        diagramType: "cli_lifecycle",
+        diagramType: "init_stage",
         commandToTest: "terraform init"
       },
       {
@@ -800,7 +884,7 @@ Plan: 1 to add, 0 to change, 0 to destroy.`,
         codeHighlights: [
           { label: "(known after apply)", text: "Computed attribute generated by cloud provider during creation" }
         ],
-        diagramType: "cli_lifecycle",
+        diagramType: "plan_stage",
         commandToTest: "terraform plan"
       },
       {
@@ -836,7 +920,7 @@ Apply complete! Resources: 1 added, 0 changed, 0 destroyed.`,
         codeHighlights: [
           { label: "Apply complete!", text: "Resource physical attributes persisted into state file" }
         ],
-        diagramType: "cli_lifecycle",
+        diagramType: "apply_stage",
         commandToTest: "terraform apply"
       }
     ]
@@ -914,7 +998,7 @@ resource "aws_instance" "web" {
           { label: "source", text: "Points to the Terraform Registry or local directory './modules/vpc'" },
           { label: "version", text: "Pins the version of the registry module for predictable builds" }
         ],
-        diagramType: "module_hierarchy",
+        diagramType: "module_interface",
         commandToTest: "terraform validate",
         quickCheck: {
           question: "How do you access an output named 'vpc_id' exported from a module called 'network'?",
@@ -1075,7 +1159,7 @@ resource "aws_security_group_rule" "web_to_db" {
         codeHighlights: [
           { label: "aws_security_group_rule", text: "Standalone rule resource breaks the circular reference cycle cleanly" }
         ],
-        diagramType: "dag_parallelism",
+        diagramType: "cycle_error",
         commandToTest: "terraform plan"
       }
     ]

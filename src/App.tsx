@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Code2,
   Layers,
@@ -34,6 +34,7 @@ import { AiMentorModal } from "./components/AiMentorModal";
 import { QuizModal } from "./components/QuizModal";
 import { CheatSheetModal } from "./components/CheatSheetModal";
 import { SolutionModal } from "./components/SolutionModal";
+import { CodeQualityModal } from "./components/CodeQualityModal";
 import { WorkspaceOrientationGuide } from "./components/WorkspaceOrientationGuide";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { safeSetItem } from "./utils/safeStorage";
@@ -66,15 +67,15 @@ export default function App() {
     startLeftResize, startCenterResize, startTerminalResize,
   } = useWorkspaceLayout(activeMode);
 
-  // 3. Gamification: XP, completed labs
-  const { completedLabIds, setCompletedLabIds, totalXp, setTotalXp } = useGamification();
+  // 3. Gamification: XP, completed labs, completed walkthroughs
+  const { completedLabIds, setCompletedLabIds, completedWalkthroughIds, setCompletedWalkthroughIds, completedDrillIds, setCompletedDrillIds, totalXp, setTotalXp } = useGamification();
 
   // 4. Error tracking: logged errors, analytics, resolution
   const {
     loggedErrors, setLoggedErrors,
     domainAnalyses, progressSummary, unresolvedErrorCount,
     logNewError, handleResolveError, handleClearErrorHistory,
-  } = useErrorTracking(completedLabIds, currentWalkthroughIndex, totalXp);
+  } = useErrorTracking(completedLabIds, completedWalkthroughIds, completedDrillIds, currentWalkthroughIndex, totalXp);
 
   // 5. Modals: all modal open/close state
   const {
@@ -86,6 +87,23 @@ export default function App() {
     aiInitialPrompt, setAiInitialPrompt,
     validationStatus, setValidationStatus,
   } = useModals();
+
+  // Code Quality Review modal — separate from useModals because it needs
+  // access to the lab's solution files + student files for comparison
+  const [isQualityReviewOpen, setIsQualityReviewOpen] = useState(false);
+
+  // Lab redo: incrementing key forces LabGuide to remount and reset sticky validation
+  const [labResetKey, setLabResetKey] = useState(0);
+
+  const handleRedoLab = () => {
+    handleResetCode();
+    setLabResetKey((k) => k + 1);
+  };
+
+  // Reset sticky validation when switching labs (not just on redo)
+  useEffect(() => {
+    setLabResetKey((k) => k + 1);
+  }, [currentLabIndex]);
 
   // 6. Terraform session: files, state, terminal, commands
   const {
@@ -172,6 +190,7 @@ export default function App() {
           <ErrorBoundary label="Dashboard">
             <CurriculumDashboard
             completedLabIds={completedLabIds}
+            completedWalkthroughIds={completedWalkthroughIds}
             currentLabIndex={currentLabIndex}
             currentWalkthroughIndex={currentWalkthroughIndex}
             loggedErrors={loggedErrors}
@@ -204,11 +223,17 @@ export default function App() {
                 workspaceViewMode={workspaceViewMode}
                 onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
                 onStartLab={handleStartLabFromDashboard}
+                onCompleteWalkthrough={(id) => {
+                  if (!completedWalkthroughIds.includes(id)) {
+                    setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
+                  }
+                }}
               />
             )}
 
             {activeMode === "lab" && (
               <LabGuide
+                key={labResetKey}
                 lab={currentLab}
                 codeMap={files}
                 state={tfState}
@@ -219,6 +244,14 @@ export default function App() {
                 hasNext={currentLabIndex < LABS_DATA.length - 1}
                 onOpenSolution={() => setIsSolutionOpen(true)}
                 onAskAiHint={handleAskAiHint}
+                onOpenQualityReview={() => setIsQualityReviewOpen(true)}
+                onRedoLab={handleRedoLab}
+                onBackToDashboard={() => setActiveMode("dashboard")}
+                onLabComplete={(labId) => {
+                  if (!completedLabIds.includes(labId)) {
+                    setCompletedLabIds([...completedLabIds, labId]);
+                  }
+                }}
                 isCompleted={completedLabIds.includes(currentLab.id)}
                 workspaceViewMode={workspaceViewMode}
                 onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
@@ -237,6 +270,20 @@ export default function App() {
                 onAskAiMentor={handleAskAiHint}
                 workspaceViewMode={workspaceViewMode}
                 onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
+                onDrillCompleted={() => {
+                  // Resolve all errors matching this drill's domain
+                  setLoggedErrors((prev) =>
+                    prev.map((e) =>
+                      e.domain === currentDrill.domain
+                        ? { ...e, resolved: true }
+                        : e
+                    )
+                  );
+                  // Mark drill as completed (persists to localStorage)
+                  if (!completedDrillIds.includes(currentDrill.id)) {
+                    setCompletedDrillIds([...completedDrillIds, currentDrill.id]);
+                  }
+                }}
               />
             )}
             </ErrorBoundary>
@@ -280,6 +327,11 @@ export default function App() {
                       workspaceViewMode={workspaceViewMode}
                       onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
                       onStartLab={handleStartLabFromDashboard}
+                      onCompleteWalkthrough={(id) => {
+                        if (!completedWalkthroughIds.includes(id)) {
+                          setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
+                        }
+                      }}
                     />
                   </ErrorBoundary>
                 )}
@@ -287,6 +339,7 @@ export default function App() {
                 {activeMode === "lab" && (
                   <ErrorBoundary label="Guide Panel">
                     <LabGuide
+                      key={labResetKey}
                       lab={currentLab}
                       codeMap={files}
                       state={tfState}
@@ -297,6 +350,14 @@ export default function App() {
                       hasNext={currentLabIndex < LABS_DATA.length - 1}
                       onOpenSolution={() => setIsSolutionOpen(true)}
                       onAskAiHint={handleAskAiHint}
+                      onOpenQualityReview={() => setIsQualityReviewOpen(true)}
+                      onRedoLab={handleRedoLab}
+                      onBackToDashboard={() => setActiveMode("dashboard")}
+                      onLabComplete={(labId) => {
+                        if (!completedLabIds.includes(labId)) {
+                          setCompletedLabIds([...completedLabIds, labId]);
+                        }
+                      }}
                       isCompleted={completedLabIds.includes(currentLab.id)}
                       workspaceViewMode={workspaceViewMode}
                       onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
@@ -317,6 +378,20 @@ export default function App() {
                       onAskAiMentor={handleAskAiHint}
                       workspaceViewMode={workspaceViewMode}
                       onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
+                      onDrillCompleted={() => {
+                        // Resolve all errors matching this drill's domain
+                        setLoggedErrors((prev) =>
+                          prev.map((e) =>
+                            e.domain === currentDrill.domain
+                              ? { ...e, resolved: true }
+                              : e
+                          )
+                        );
+                        // Mark drill as completed (persists to localStorage)
+                        if (!completedDrillIds.includes(currentDrill.id)) {
+                          setCompletedDrillIds([...completedDrillIds, currentDrill.id]);
+                        }
+                      }}
                     />
                   </ErrorBoundary>
                 )}
@@ -657,6 +732,16 @@ export default function App() {
             setFiles({ ...solutionFiles });
             addTerminalLog("system", "Loaded lab solution files into code editor.");
           }}
+        />
+      </ErrorBoundary>
+
+      {/* 8. Code Quality Review Modal */}
+      <ErrorBoundary label="Code Quality Review">
+        <CodeQualityModal
+          isOpen={isQualityReviewOpen}
+          onClose={() => setIsQualityReviewOpen(false)}
+          lab={currentLab}
+          studentFiles={files}
         />
       </ErrorBoundary>
     </div>

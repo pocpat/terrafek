@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ParsedResource } from "../types/terraform";
+import type { ValidationError } from "../utils/terraformEngine";
 
 export interface ModalsState {
   selectedResource: ParsedResource | null;
@@ -14,8 +15,8 @@ export interface ModalsState {
   setIsSolutionOpen: React.Dispatch<React.SetStateAction<boolean>>;
   aiInitialPrompt: string;
   setAiInitialPrompt: React.Dispatch<React.SetStateAction<string>>;
-  validationStatus: { valid: boolean; errors: string[] } | null;
-  setValidationStatus: React.Dispatch<React.SetStateAction<{ valid: boolean; errors: string[] } | null>>;
+  validationStatus: { valid: boolean; errors: string[]; detailedErrors?: ValidationError[] } | null;
+  setValidationStatus: React.Dispatch<React.SetStateAction<{ valid: boolean; errors: string[]; detailedErrors?: ValidationError[] } | null>>;
 }
 
 /**

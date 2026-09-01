@@ -40,6 +40,7 @@ interface WalkthroughGuideProps {
   workspaceViewMode?: "study" | "split" | "editor_only";
   onToggleWorkspaceViewMode?: (mode: "study" | "split") => void;
   onStartLab?: (labIndex: number) => void;
+  onCompleteWalkthrough?: (walkthroughId: string) => void;
 }
 
 // Maps each walkthrough to the lab that practices the same subject.
@@ -62,6 +63,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   workspaceViewMode = "study",
   onToggleWorkspaceViewMode,
   onStartLab,
+  onCompleteWalkthrough,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
@@ -78,6 +80,13 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   const currentWalkthrough: VisualWalkthrough = WALKTHROUGHS_DATA[currentWalkthroughIndex] || WALKTHROUGHS_DATA[0];
   const steps = currentWalkthrough.steps;
   const currentStep: WalkthroughStep = steps[currentStepIndex] || steps[0];
+
+  // Mark walkthrough as complete when the user reaches the last step
+  useEffect(() => {
+    if (currentStepIndex === steps.length - 1 && onCompleteWalkthrough) {
+      onCompleteWalkthrough(currentWalkthrough.id);
+    }
+  }, [currentStepIndex, steps.length, currentWalkthrough.id, onCompleteWalkthrough]);
 
   // Reset step & quiz when walkthrough changes
   const handleSelectWalkthrough = (idx: number) => {
@@ -218,7 +227,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
           <div className="relative group shrink-0">
             {workspaceViewMode === "study" ? (
               <button
-                onClick={handleTryInEditor}
+                onClick={handleStartLab}
                 className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer shrink-0"
               >
                 <Terminal className="w-3.5 h-3.5" />
@@ -242,7 +251,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
               </div>
               <p className="text-stone-300 font-sans">
                 {workspaceViewMode === "study"
-                  ? "Read through the lesson steps first. You can open the hands-on Lab on the final step (or click here anytime to launch the Code Editor & Cloud Visualizer)."
+                  ? "Read through the lesson steps first, then click here to open the hands-on Lab (Task Checklist on the left, Code Editor on the right)."
                   : "Live HCL Code Editor and Cloud Visualizer are open side-by-side. Click here to collapse them and focus purely on reading."}
               </p>
               <div className="absolute bottom-full right-4 w-2.5 h-2.5 bg-stone-950 border-t border-l border-stone-800 rotate-45 mb-[-5px]" />

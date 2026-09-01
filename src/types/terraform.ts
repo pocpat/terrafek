@@ -128,13 +128,28 @@ export interface CheatSheetSection {
 
 export type WalkthroughDiagramType =
   | "provider_flow"
+  | "provider_config_flow"
+  | "plugin_lifecycle"
+  | "provider_alias_routing"
   | "anatomy_breakdown"
+  | "dependency_graph"
+  | "resource_stack"
+  | "best_practice_matrix"
   | "variable_pipeline"
+  | "locals_flow"
+  | "output_flow"
   | "state_reconciliation"
+  | "state_file_map"
+  | "remote_backend"
+  | "init_stage"
+  | "plan_stage"
+  | "apply_stage"
   | "cli_lifecycle"
   | "module_hierarchy"
+  | "module_interface"
   | "data_lookup"
-  | "dag_parallelism";
+  | "dag_parallelism"
+  | "cycle_error";
 
 export interface WalkthroughStep {
   id: string;
@@ -178,7 +193,8 @@ export type SkillDomain =
   | "variables_types"
   | "resource_dependencies"
   | "state_lifecycle"
-  | "modules_architecture";
+  | "modules_architecture"
+  | "resource_attributes";
 
 export interface LoggedErrorEvent {
   id: string;
@@ -234,6 +250,8 @@ export interface CourseProgressSummary {
   completedWalkthroughs: number;
   totalXp: number;
   currentStreakDays: number;
+  totalDaysSinceStart: number;
+  activeDaysCount: number;
   nextRecommendedLesson: {
     type: "walkthrough" | "lab" | "drill";
     index: number;

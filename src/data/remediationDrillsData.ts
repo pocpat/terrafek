@@ -61,8 +61,22 @@ resource "aws_s3_bucket" "remediation_bucket" {
     },
     validationCheck: (codeMap) => {
       const main = codeMap["main.tf"] || "";
+      // Strip comment lines before checking for single quotes,
+      // because comments may legitimately contain single quotes
+      // (e.g. "# Task: ... 'terraform validate' passes.")
+      const codeLinesOnly = main
+        .split("\n")
+        .filter((line) => {
+          const trimmed = line.trim();
+          return !trimmed.startsWith("#") && !trimmed.startsWith("//") && !trimmed.startsWith("/*");
+        })
+        .join("\n");
+      // Count braces to ensure all blocks are properly closed
+      const openBraces = (codeLinesOnly.match(/{/g) || []).length;
+      const closeBraces = (codeLinesOnly.match(/}/g) || []).length;
       return (
-        !main.includes("'") &&
+        !codeLinesOnly.includes("'") &&
+        openBraces === closeBraces &&
         main.includes('region = "us-east-1"') &&
         main.includes('resource "aws_s3_bucket" "remediation_bucket"') &&
         main.includes('bucket = "my-remediation-bucket"')
@@ -402,6 +416,288 @@ output "vpc_id" {
     validationCheck: (codeMap) => {
       const main = codeMap["main.tf"] || "";
       return main.includes("module.network.vpc_id") && !main.includes('"module.network.vpc_id"');
+    }
+  },
+  {
+    id: "drill-tags-blocks",
+    domain: "resource_attributes",
+    title: "Writing Tags Blocks for AWS Resources",
+    subtitle: "Add required resource attributes by building a tags map for an EC2 instance",
+    estimatedMinutes: 5,
+    difficulty: "Beginner",
+    diagnosticReason: "Triggered when a resource is missing a tags block, or when provider validation rejects a configuration because required metadata attributes are absent.",
+    learningConcept:
+      "The 'tags' argument is a map of key/value pairs that AWS attaches to a resource as metadata. It is not a string — it is an inline object written as tags = { Name = \"...\", Environment = \"...\" }. Many AWS resources support tags, and they are essential for cost allocation, access control (via tag-based IAM policies), and operational filtering across the console and APIs.",
+    commonMistakeExplanation:
+      "A very common mistake is to omit the tags block entirely, leaving a resource with no metadata. Another mistake is to write tags as a single string (tags = \"web-server\") instead of a map of key/value pairs. The provider rejects a bare string because 'tags' is schema-typed as a map.",
+    brokenSnippet: `# ❌ BROKEN EXAMPLE: aws_instance with NO tags block
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+}`,
+    fixedSnippet: `# ✅ FIXED CODE: tags block added as a map
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name        = "web-server"
+    Environment = "production"
+  }
+}`,
+    ruleBulletPoints: [
+      "The 'tags' argument is a MAP written as tags = { Key = \"Value\" }. Each key must be on its own line, with the value in double quotes.",
+      "Omitting tags is legal for most resources but is a serious operational anti-pattern — without tags you cannot group, filter, or cost-allocate resources in AWS.",
+      "Run 'terraform validate' to catch schema errors, then 'terraform plan' to confirm the tags map is accepted by the provider.",
+      "Tag keys are case-sensitive: 'Name' and 'name' are different keys. The 'Name' key (capital N) is what the AWS Console displays for the instance's label."
+    ],
+    practiceTask:
+      "Add a tags block to the aws_instance below. Set Name = \"web-server\" and Environment = \"production\". Remember: tags is a map of key/value pairs, not a string.",
+    commandToTest: "terraform validate",
+    starterFiles: {
+      "main.tf": `# Remediation Drill: Writing Tags Blocks
+# Task: This aws_instance has NO tags. Add a tags block with:
+#   Name        = "web-server"
+#   Environment = "production"
+#
+# Why it matters: Tags are metadata labels that AWS attaches to the resource.
+# They enable cost allocation, access control, and console filtering.
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+
+  # TODO: Add your tags block here
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name        = "web-server"
+    Environment = "production"
+  }
+}
+`
+    },
+    validationCheck: (codeMap) => {
+      const main = codeMap["main.tf"] || "";
+      return (
+        main.includes("tags") &&
+        main.includes("Name") &&
+        main.includes("Environment")
+      );
+    }
+  },
+  {
+    id: "drill-security-group-ingress",
+    domain: "resource_attributes",
+    title: "Building Security Group Ingress Rules",
+    subtitle: "Add ingress blocks with from_port, to_port, and protocol to an AWS security group",
+    estimatedMinutes: 8,
+    difficulty: "Intermediate",
+    diagnosticReason:
+      "Triggered when an aws_security_group has no ingress blocks, or when a security group rule is missing from_port / to_port / protocol arguments that the AWS provider schema requires.",
+    learningConcept:
+      "An ingress block defines an inbound traffic rule. It is a NESTED BLOCK inside the aws_security_group resource (not an argument with an equals sign). Each ingress block MUST specify three arguments: 'from_port' (the start port), 'to_port' (the end port), and 'protocol' (usually \"tcp\"). Without all three, the AWS provider cannot form a valid security group rule and validation fails.",
+    commonMistakeExplanation:
+      "The most common mistake is declaring an aws_security_group with NO ingress blocks — which means the resource exists but allows no inbound traffic at all. A second mistake is writing only part of a rule (e.g. setting port = 80 instead of the required from_port and to_port). The AWS provider schema does not accept a generic 'port' argument; it strictly requires 'from_port' and 'to_port' separately.",
+    brokenSnippet: `# ❌ BROKEN EXAMPLE: aws_security_group with NO ingress blocks
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+}`,
+    fixedSnippet: `# ✅ FIXED CODE: two ingress blocks for HTTP (80) and HTTPS (443)
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}`,
+    ruleBulletPoints: [
+      "An 'ingress' block is a NESTED BLOCK (no equals sign): 'ingress { ... }'. It is not an argument like 'ingress = ...'.",
+      "Every ingress block REQUIRES three arguments: from_port, to_port, and protocol. The provider schema rejects rules missing any of these.",
+      "from_port and to_port are NUMBERS (80, 443), not strings — do not quote them. Use the same value for both to open a single port.",
+      "'protocol = \"tcp\"' uses double quotes because protocol is a string argument.",
+      "cidr_blocks is a LIST of strings written with square brackets: cidr_blocks = [\"0.0.0.0/0\"]."
+    ],
+    practiceTask:
+      "Add two ingress blocks to the aws_security_group below. The first must allow HTTP on port 80 (from_port = 80, to_port = 80, protocol = \"tcp\"). The second must allow HTTPS on port 443. Each block needs from_port, to_port, and protocol.",
+    commandToTest: "terraform validate",
+    starterFiles: {
+      "main.tf": `# Remediation Drill: Security Group Ingress Rules
+# Task: This aws_security_group has NO ingress blocks.
+# Add TWO ingress blocks:
+#   1. HTTP  - from_port = 80,  to_port = 80,  protocol = "tcp"
+#   2. HTTPS - from_port = 443, to_port = 443, protocol = "tcp"
+#
+# Why from_port/to_port: AWS requires a port RANGE. A single port uses
+# the same value for both. 'protocol' tells AWS the L4 protocol (tcp/udp/...).
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+
+  # TODO: Add your two ingress blocks here (ports 80 and 443)
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+`
+    },
+    validationCheck: (codeMap) => {
+      const main = codeMap["main.tf"] || "";
+      return (
+        main.includes("ingress") &&
+        main.includes("80") &&
+        main.includes("443") &&
+        main.includes("from_port") &&
+        main.includes("to_port")
+      );
+    }
+  },
+  {
+    id: "drill-list-syntax",
+    domain: "resource_attributes",
+    title: "Using List Arguments with Square Brackets",
+    subtitle: "Fix a list-typed argument written as a string and rewrite it with [ ] bracket syntax",
+    estimatedMinutes: 6,
+    difficulty: "Beginner",
+    diagnosticReason:
+      "Triggered when a list-typed resource argument (such as vpc_security_group_ids) is assigned a single string instead of a list, producing a type-mismatch or 'Invalid value for argument' error from the provider.",
+    learningConcept:
+      "Some resource arguments are schema-typed as a LIST of items. vpc_security_group_ids, for example, accepts a list of security group IDs because an instance can belong to MULTIPLE security groups. In HCL, list literals are written with square brackets: [ item1, item2 ]. A single item still needs the brackets: [ aws_security_group.web_sg.id ].",
+    commonMistakeExplanation:
+      "The common mistake is to treat a list argument like a string argument and write vpc_security_group_ids = \"aws_security_group.web_sg.id\". The provider rejects this because the schema expects 'list of strings', not a single string. The fix is to wrap the value in square brackets so HCL evaluates it as a one-element list.",
+    brokenSnippet: `# ❌ BROKEN EXAMPLE: list argument written as a bare string
+resource "aws_instance" "web" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = "aws_security_group.web_sg.id"
+}`,
+    fixedSnippet: `# ✅ FIXED CODE: list argument wrapped in square brackets
+resource "aws_instance" "web" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+}`,
+    ruleBulletPoints: [
+      "When an argument's schema type is 'list of X', HCL expects square brackets: argument = [ value1, value2 ].",
+      "Even a single-element list needs brackets: [ aws_security_group.web_sg.id ]. The brackets tell HCL 'this is a list', not a string.",
+      "Commas separate multiple items: [ sg_a.id, sg_b.id, sg_c.id ].",
+      "A bare string without brackets is a string, never a list — the provider will reject a string where a list is required.",
+      "Reference attributes inside the brackets stay unquoted (they are expressions, not strings): [ aws_security_group.web_sg.id ], not [ \"aws_security_group.web_sg.id\" ]."
+    ],
+    practiceTask:
+      "Fix the vpc_security_group_ids argument below. It is currently written as a bare string. Rewrite it as a list using square brackets: [aws_security_group.web_sg.id].",
+    commandToTest: "terraform validate",
+    starterFiles: {
+      "main.tf": `# Remediation Drill: List Arguments with Square Brackets
+# Task: The vpc_security_group_ids argument is written as a STRING.
+# It must be a LIST. Rewrite it using square brackets:
+#   vpc_security_group_ids = [aws_security_group.web_sg.id]
+#
+# Why brackets: this attribute accepts a LIST of security group IDs
+# (an instance can join multiple SGs). A single item still needs [ ].
+# Reference attributes inside [] stay UNQUOTED — they are expressions.
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Web security group"
+}
+
+resource "aws_instance" "web" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = "aws_security_group.web_sg.id"  # ❌ should be a list
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name        = "web-sg"
+  description = "Web security group"
+}
+
+resource "aws_instance" "web" {
+  ami                    = "ami-0c55b159cbfafe1f0"
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+}
+`
+    },
+    validationCheck: (codeMap) => {
+      const main = codeMap["main.tf"] || "";
+      return (
+        main.includes("[") &&
+        main.includes("]") &&
+        main.includes("aws_security_group")
+      );
     }
   }
 ];

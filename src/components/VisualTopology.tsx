@@ -36,6 +36,58 @@ interface VisualTopologyProps {
   selectedResourceId?: string | null;
 }
 
+// Animated connection arrow between resources — shows data flow direction
+const ConnectionArrow: React.FC<{
+  label: string;
+  isAnimated: boolean;
+  isDark: boolean;
+  color?: string;
+}> = ({ label, isAnimated, isDark, color = "cyan" }) => {
+  const colorMap: Record<string, { line: string; bead: string; text: string; badge: string }> = {
+    cyan: {
+      line: isDark ? "bg-cyan-500/30" : "bg-sky-300/60",
+      bead: isDark ? "bg-cyan-400 shadow-[0_0_8px_#00d4c8]" : "bg-sky-500",
+      text: isDark ? "text-cyan-300" : "text-sky-700",
+      badge: isDark ? "bg-cyan-950/80 border-cyan-800/60 text-cyan-300" : "bg-sky-100 border-sky-200 text-sky-800",
+    },
+    orange: {
+      line: isDark ? "bg-orange-500/30" : "bg-indigo-300/60",
+      bead: isDark ? "bg-orange-400 shadow-[0_0_8px_#ff9900]" : "bg-indigo-500",
+      text: isDark ? "text-orange-300" : "text-indigo-700",
+      badge: isDark ? "bg-orange-950/80 border-orange-800/60 text-orange-300" : "bg-indigo-100 border-indigo-200 text-indigo-800",
+    },
+  };
+  const c = colorMap[color] || colorMap.cyan;
+
+  return (
+    <div className="flex items-center justify-center py-1.5">
+      <div className="flex flex-col items-center w-full max-w-[200px]">
+        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border mb-1 ${c.badge}`}>
+          {label}
+        </span>
+        <div className={`w-full h-[2px] rounded-full relative overflow-hidden ${c.line}`}>
+          {/* Animated flowing bead showing data direction */}
+          {isAnimated && (
+            <motion.div
+              className={`h-full w-3 rounded-full ${c.bead}`}
+              initial={{ left: "0%" }}
+              animate={{ left: "85%" }}
+              transition={{ duration: 2.0, repeat: Infinity, ease: "easeInOut" }}
+              style={{ position: "absolute", top: 0 }}
+            />
+          )}
+          {/* Arrow head */}
+          <div className={`absolute right-0 top-1/2 -translate-y-1/2 ${c.text}`}>
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 3l14 9-14 9V3z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const VisualTopology: React.FC<VisualTopologyProps> = ({
   resources,
   state,
@@ -336,22 +388,6 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                           </div>
                         )}
 
-                        {/* Animated Flowing Shimmer Bead on Applied Node */}
-                        {isAnimated && status === "applied" && (
-                          <div className={`mt-2 w-full h-1 rounded-full overflow-hidden relative ${
-                            isDark ? "bg-teal-950/80" : "bg-amber-200/70"
-                          }`}>
-                            <motion.div
-                              className={`h-full w-10 rounded-full ${
-                                isDark ? "bg-teal-400 shadow-[0_0_8px_#00d4c8]" : "bg-emerald-500"
-                              }`}
-                              initial={{ left: "-20%" }}
-                              animate={{ left: "100%" }}
-                              transition={{ duration: 2.2 / animSpeed, repeat: Infinity, ease: "linear" }}
-                              style={{ position: "relative" }}
-                            />
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -410,6 +446,16 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                       {getStatusBadge(vpcStatus)}
                     </div>
 
+                    {/* Connection arrow: VPC -> Subnets (vpc_id reference) */}
+                    {subnetResources.length > 0 && (
+                      <ConnectionArrow
+                        label="vpc_id"
+                        isAnimated={isAnimated && vpcStatus === "applied"}
+                        isDark={isDark}
+                        color="cyan"
+                      />
+                    )}
+
                     {/* Subnets Inside VPC */}
                     <div className="space-y-3.5">
                       {subnetResources.length > 0 ? (
@@ -463,6 +509,16 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                                 {getStatusBadge(subStatus)}
                               </div>
 
+                              {/* Connection arrow: Subnet -> EC2 (subnet_id reference) */}
+                              {attachedInstances.length > 0 && (
+                                <ConnectionArrow
+                                  label="subnet_id"
+                                  isAnimated={isAnimated && subStatus === "applied"}
+                                  isDark={isDark}
+                                  color="orange"
+                                />
+                              )}
+
                               {/* Compute Nodes in Subnet - Orange Glowing EC2 Pods */}
                               {attachedInstances.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
@@ -507,23 +563,6 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                                             isDark ? "text-orange-300 bg-orange-950/60 border-orange-800/60" : "text-indigo-900 bg-indigo-50/80 border-indigo-100"
                                           }`}>
                                             AMI: {instance.attributes.ami}
-                                          </div>
-                                        )}
-
-                                        {/* Animated Shimmer Bar on Applied Instance */}
-                                        {isAnimated && instStatus === "applied" && (
-                                          <div className={`mt-2 w-full h-1 rounded-full overflow-hidden relative ${
-                                            isDark ? "bg-orange-950/80" : "bg-indigo-200/70"
-                                          }`}>
-                                            <motion.div
-                                              className={`h-full w-8 rounded-full ${
-                                                isDark ? "bg-orange-400 shadow-[0_0_8px_#ff9900]" : "bg-indigo-600"
-                                              }`}
-                                              initial={{ left: "-20%" }}
-                                              animate={{ left: "100%" }}
-                                              transition={{ duration: 2.0 / animSpeed, repeat: Infinity, ease: "linear" }}
-                                              style={{ position: "relative" }}
-                                            />
                                           </div>
                                         )}
                                       </div>
@@ -680,23 +719,6 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                         </div>
                         {getStatusBadge(dbStatus)}
                       </div>
-
-                      {/* Animated Shimmer on Applied Database */}
-                      {isAnimated && dbStatus === "applied" && (
-                        <div className={`mt-2.5 w-full h-1 rounded-full overflow-hidden relative ${
-                          isDark ? "bg-blue-950/80" : "bg-purple-200/70"
-                        }`}>
-                          <motion.div
-                            className={`h-full w-8 rounded-full ${
-                              isDark ? "bg-blue-400 shadow-[0_0_8px_#0078d4]" : "bg-purple-600"
-                            }`}
-                            initial={{ left: "-20%" }}
-                            animate={{ left: "100%" }}
-                            transition={{ duration: 2.3 / animSpeed, repeat: Infinity, ease: "linear" }}
-                            style={{ position: "relative" }}
-                          />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -735,23 +757,6 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                         </div>
                         {getStatusBadge(lbStatus)}
                       </div>
-
-                      {/* Animated Shimmer on Applied Load Balancer */}
-                      {isAnimated && lbStatus === "applied" && (
-                        <div className={`mt-2.5 w-full h-1 rounded-full overflow-hidden relative ${
-                          isDark ? "bg-purple-950/80" : "bg-teal-200/70"
-                        }`}>
-                          <motion.div
-                            className={`h-full w-8 rounded-full ${
-                              isDark ? "bg-purple-400 shadow-[0_0_8px_#9b59f5]" : "bg-teal-600"
-                            }`}
-                            initial={{ left: "-20%" }}
-                            animate={{ left: "100%" }}
-                            transition={{ duration: 2.1 / animSpeed, repeat: Infinity, ease: "linear" }}
-                            style={{ position: "relative" }}
-                          />
-                        </div>
-                      )}
                     </div>
                   );
                 })}

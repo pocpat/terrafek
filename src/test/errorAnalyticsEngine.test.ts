@@ -65,9 +65,10 @@ describe('errorAnalyticsEngine', () => {
   });
 
   describe('calculateDomainAnalyses', () => {
-    it('returns 5 domain analyses', () => {
+    it('returns 6 domain analyses', () => {
       const analyses = calculateDomainAnalyses([], []);
-      expect(analyses).toHaveLength(5);
+      expect(analyses).toHaveLength(6);
+      expect(analyses.map((a) => a.domain)).toContain('resource_attributes');
     });
 
     it('marks unassessed domains when no errors and no completed labs', () => {
@@ -116,26 +117,27 @@ describe('errorAnalyticsEngine', () => {
 
   describe('calculateCourseProgress', () => {
     it('calculates 0% completion with no progress', () => {
-      const summary = calculateCourseProgress([], 0, 100, []);
+      const summary = calculateCourseProgress([], [], [], 0, 100, []);
       expect(summary.completionPercentage).toBe(0);
       expect(summary.completedLessons).toBe(0);
     });
 
     it('counts completed labs and walkthroughs', () => {
-      const summary = calculateCourseProgress(['lab-1-first-resource', 'lab-2-core-workflow'], 2, 350, []);
+      const summary = calculateCourseProgress(['lab-1-first-resource', 'lab-2-core-workflow'], [], [], 0, 350, []);
       expect(summary.completedLessons).toBeGreaterThan(0);
       expect(summary.completionPercentage).toBeGreaterThan(0);
     });
 
     it('recommends a drill when there are unresolved errors', () => {
       const errors = [makeError('syntax_anatomy')];
-      const summary = calculateCourseProgress([], 0, 100, errors);
+      const summary = calculateCourseProgress([], [], [], 0, 100, errors);
       expect(summary.nextRecommendedLesson.type).toBe('drill');
       expect(summary.nextRecommendedLesson.title).toContain('Skill Gap Drill');
     });
 
     it('recommends next uncompleted lab when no unresolved errors', () => {
-      const summary = calculateCourseProgress(['lab-1-first-resource'], 0, 200, []);
+      // Learner has completed lab-1 and progressed past every walkthrough (index 6 = last).
+      const summary = calculateCourseProgress(['lab-1-first-resource'], [], [], 6, 200, []);
       expect(summary.nextRecommendedLesson.type).toBe('lab');
     });
 
@@ -147,7 +149,8 @@ describe('errorAnalyticsEngine', () => {
         'lab-7-count-and-for-each', 'lab-8-modular-architecture', 'lab-9-remote-state-locking',
         'lab-10-production-hero',
       ];
-      const summary = calculateCourseProgress(allLabIds, 0, 2000, []);
+      // Progressed past every walkthrough (index 6 = last), so the refresher branch fires.
+      const summary = calculateCourseProgress(allLabIds, [], [], 6, 2000, []);
       expect(summary.nextRecommendedLesson.type).toBe('walkthrough');
     });
   });

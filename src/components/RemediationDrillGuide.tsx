@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Target,
   Clock,
@@ -11,9 +11,12 @@ import {
   Eye,
   Check,
   Terminal,
-  Columns
+  Columns,
+  XCircle,
+  Frown
 } from "lucide-react";
 import { RemediationDrill, ParsedResource, TerraformStateFile } from "../types/terraform";
+import { ConfettiOverlay } from "./ConfettiOverlay";
 
 interface RemediationDrillGuideProps {
   drill: RemediationDrill;
@@ -42,6 +45,43 @@ export const RemediationDrillGuide: React.FC<RemediationDrillGuideProps> = ({
 
   // Check if drill validation passed
   const isPassed = drill.validationCheck(codeMap, state, parsedResources);
+
+  // Track state transitions for confetti / failure feedback
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [showFailIndicator, setShowFailIndicator] = useState(false);
+  const prevPassed = useRef(false);
+  const prevCode = useRef("");
+  const hasAttempted = useRef(false);
+
+  useEffect(() => {
+    // Detect if user has modified the code (made an attempt)
+    const currentCode = codeMap["main.tf"] || "";
+    if (currentCode !== prevCode.current) {
+      hasAttempted.current = true;
+      prevCode.current = currentCode;
+    }
+
+    // Fire confetti when drill transitions from not-passed → passed
+    if (isPassed && !prevPassed.current) {
+      setConfettiTrigger((t) => t + 1);
+      setShowFailIndicator(false);
+      // Notify parent that the drill was completed successfully
+      if (onDrillCompleted) {
+        onDrillCompleted();
+      }
+    }
+
+    // Show "not yet" indicator when user has attempted but still failing
+    if (!isPassed && hasAttempted.current && prevPassed.current === false) {
+      setShowFailIndicator(true);
+      // Auto-hide after 4 seconds
+      const timer = setTimeout(() => setShowFailIndicator(false), 4000);
+      prevPassed.current = isPassed;
+      return () => clearTimeout(timer);
+    }
+
+    prevPassed.current = isPassed;
+  }, [isPassed, codeMap]);
 
   return (
     <div className="flex flex-col h-full bg-[#FAFAFA] text-stone-900 overflow-y-auto custom-scrollbar font-sans select-none">
@@ -124,14 +164,26 @@ export const RemediationDrillGuide: React.FC<RemediationDrillGuideProps> = ({
         </div>
 
         {/* 3. The Practice Task */}
-        <div className="bg-[#EBF2F8] border border-[#CADAE8] rounded-2xl p-4 shadow-2xs space-y-2.5">
+        <div className={`bg-[#EBF2F8] border rounded-2xl p-4 shadow-2xs space-y-2.5 transition-colors ${
+          isPassed ? "border-emerald-300" : showFailIndicator ? "border-rose-300" : "border-[#CADAE8]"
+        }`}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-serif font-bold text-slate-900 uppercase tracking-wider text-[11px]">
               Your Fix Objective
             </h3>
-            {isPassed && (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono border border-emerald-300">
-                Passed ✓
+            {isPassed ? (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono border border-emerald-300 flex items-center space-x-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Passed ✓</span>
+              </span>
+            ) : showFailIndicator ? (
+              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold font-mono border border-rose-300 flex items-center space-x-1 animate-pulse">
+                <XCircle className="w-3 h-3" />
+                <span>Not yet — keep trying</span>
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px] font-bold font-mono border border-stone-200">
+                In Progress
               </span>
             )}
           </div>
@@ -181,6 +233,21 @@ export const RemediationDrillGuide: React.FC<RemediationDrillGuideProps> = ({
           </div>
         )}
 
+        {/* 4b. "Not Yet" Failure Feedback — shown when user attempted but drill still fails */}
+        {showFailIndicator && !isPassed && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 space-y-2 shadow-2xs animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex items-center space-x-2 font-serif font-bold text-sm">
+              <Frown className="w-5 h-5 text-rose-500 animate-bounce" />
+              <span>Not quite there yet...</span>
+            </div>
+            <p className="text-xs font-sans text-rose-800 leading-relaxed">
+              Your fix didn't fully resolve the issue yet. Review the rule points above,
+              compare with the broken vs fixed examples, or ask the AI Mentor for a hint.
+              You're learning — keep going!
+            </p>
+          </div>
+        )}
+
         {/* 5. Success Banner */}
         {isPassed && (
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2 shadow-2xs animate-fade-in">
@@ -200,6 +267,13 @@ export const RemediationDrillGuide: React.FC<RemediationDrillGuideProps> = ({
           </div>
         )}
       </div>
+
+      {/* Confetti overlay — fires when drill is successfully completed */}
+      <ConfettiOverlay
+        trigger={confettiTrigger}
+        message="Drill Complete!"
+        intensity="lab"
+      />
     </div>
   );
 };

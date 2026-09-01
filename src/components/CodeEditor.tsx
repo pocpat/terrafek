@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   FileCode,
   Sparkles,
@@ -14,10 +14,15 @@ import {
   HelpCircle,
   Briefcase,
   Baby,
-  Lightbulb
+  Lightbulb,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Wand2
 } from "lucide-react";
 import { formatHclString } from "../utils/terraformEngine";
 import { explainHclLine, LineExplanation } from "../utils/hclLineExplainer";
+import { checkHclSyntax, SyntaxIssue } from "../utils/hclSyntaxChecker";
 
 interface CodeEditorProps {
   files: Record<string, string>;
@@ -27,7 +32,7 @@ interface CodeEditorProps {
   onResetCode: () => void;
   onFormatCode: () => void;
   onValidateCode: () => void;
-  validationStatus?: { valid: boolean; errors: string[] } | null;
+  validationStatus?: { valid: boolean; errors: string[]; detailedErrors?: import("../utils/terraformEngine").ValidationError[] } | null;
   showStepBadge?: boolean;
 }
 
@@ -96,11 +101,51 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [showSnippets, setShowSnippets] = useState(false);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
   const [explainerMode, setExplainerMode] = useState<"formal" | "eli5">("eli5");
+  const [showErrorPanel, setShowErrorPanel] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentContent = files[activeFile] || "";
   const lines = currentContent.split("\n");
   const lineCount = lines.length;
+
+  // Live syntax check — runs on every keystroke
+  const syntaxIssues: SyntaxIssue[] = useMemo(() => checkHclSyntax(currentContent), [currentContent]);
+
+  // Merge terminal validation errors (from terraform validate / plan) into the line map
+  // so they show as red markers on the exact lines in the code editor
+  const validationLineIssues = useMemo(() => {
+    const issues: SyntaxIssue[] = [];
+    if (validationStatus?.detailedErrors && !validationStatus.valid) {
+      validationStatus.detailedErrors.forEach((err) => {
+        // Only include errors for the currently active file
+        if (err.fileName && err.fileName !== activeFile) return;
+        if (err.line) {
+          issues.push({
+            line: err.line,
+            column: 1,
+            severity: err.severity === "warning" ? "warning" : "error",
+            message: err.message,
+            eli5: err.eli5 || err.message,
+            fixHint: err.fixHint || "",
+          });
+        }
+      });
+    }
+    return issues;
+  }, [validationStatus, activeFile]);
+
+  const allIssues = useMemo(() => [...syntaxIssues, ...validationLineIssues], [syntaxIssues, validationLineIssues]);
+
+  const issueLineMap = useMemo(() => {
+    const map = new Map<number, SyntaxIssue>();
+    allIssues.forEach((issue) => {
+      // Don't overwrite a syntax issue with a validation one on the same line
+      if (!map.has(issue.line - 1)) map.set(issue.line - 1, issue); // 0-indexed
+    });
+    return map;
+  }, [allIssues]);
+  const errorCount = allIssues.filter((i) => i.severity === "error").length;
+  const warningCount = allIssues.filter((i) => i.severity === "warning").length;
 
   const selectedExplanation: LineExplanation | null =
     selectedLineIndex !== null && lines[selectedLineIndex] !== undefined
@@ -280,17 +325,25 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="w-10 py-3 bg-[#141416] border-r border-zinc-800 text-zinc-600 select-none text-right pr-2 font-mono text-[11px] leading-5 shrink-0">
           {Array.from({ length: Math.max(lineCount, 16) }).map((_, i) => {
             const isSelected = selectedLineIndex === i;
+            const issue = issueLineMap.get(i);
+            const hasError = issue && issue.severity === "error";
+            const hasWarning = issue && issue.severity === "warning";
             return (
               <div
                 key={i}
                 onClick={() => setSelectedLineIndex(isSelected ? null : i)}
-                className={`cursor-pointer transition-colors px-0.5 rounded ${
+                className={`cursor-pointer transition-colors px-0.5 rounded flex items-center justify-end space-x-0.5 ${
                   isSelected
                     ? "bg-indigo-600 text-white font-bold"
+                    : hasError
+                    ? "bg-rose-950/80 text-rose-400 font-bold hover:bg-rose-900"
+                    : hasWarning
+                    ? "bg-amber-950/60 text-amber-400 hover:bg-amber-900"
                     : "hover:text-amber-400 hover:bg-zinc-800"
                 }`}
-                title={`Click to inspect Line ${i + 1}`}
+                title={issue ? `${issue.fixHint} — ${issue.eli5}` : `Click to inspect Line ${i + 1}`}
               >
+                {hasError && <AlertTriangle className="w-2.5 h-2.5 shrink-0" />}
                 {i + 1}
               </div>
             );
@@ -384,6 +437,97 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* Live Syntax Helper Panel — beginner-friendly error guidance */}
+      {allIssues.length > 0 && showErrorPanel && (
+        <div className="border-t border-zinc-800 bg-[#1a1a1f] shrink-0 z-10 max-h-[40%] overflow-y-auto custom-scrollbar">
+          {/* Panel Header */}
+          <div className="sticky top-0 bg-[#1a1a1f] border-b border-zinc-800 px-3 py-1.5 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className={`w-3.5 h-3.5 ${errorCount > 0 ? "text-rose-400" : "text-amber-400"}`} />
+              <span className="text-[11px] font-bold text-zinc-200">
+                {errorCount > 0
+                  ? `${errorCount} Error${errorCount > 1 ? "s" : ""}${warningCount > 0 ? `, ${warningCount} Warning${warningCount > 1 ? "s" : ""}` : ""}`
+                  : `${warningCount} Warning${warningCount > 1 ? "s" : ""}`}
+              </span>
+              <span className="text-[9.5px] font-mono text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">
+                Live Check
+              </span>
+            </div>
+            <button
+              onClick={() => setShowErrorPanel(false)}
+              className="p-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Hide error panel"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Issue Cards */}
+          <div className="px-3 py-2 space-y-1.5">
+            {allIssues.map((issue, idx) => (
+              <div
+                key={idx}
+                className={`rounded-lg border p-2.5 text-[11px] leading-relaxed ${
+                  issue.severity === "error"
+                    ? "bg-rose-950/40 border-rose-800/50"
+                    : "bg-amber-950/30 border-amber-800/40"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded font-mono text-[9.5px] font-bold ${
+                      issue.severity === "error"
+                        ? "bg-rose-900/80 text-rose-200"
+                        : "bg-amber-900/80 text-amber-200"
+                    }`}>
+                      Line {issue.line}
+                    </span>
+                    <span className={`font-bold ${
+                      issue.severity === "error" ? "text-rose-300" : "text-amber-300"
+                    }`}>
+                      {issue.message}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedLineIndex(issue.line - 1)}
+                    className="shrink-0 p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                    title="Jump to this line"
+                  >
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* Beginner-friendly explanation */}
+                <div className="flex items-start space-x-1.5 mt-1.5 text-amber-200/80">
+                  <Baby className="w-3 h-3 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-sans">{issue.eli5}</p>
+                </div>
+
+                {/* Fix suggestion */}
+                <div className="flex items-center space-x-1.5 mt-1.5 pt-1.5 border-t border-zinc-800/60">
+                  <Wand2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span className="text-[11px] font-semibold text-emerald-400">
+                    Fix: {issue.fixHint}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed error panel — show a small pill to re-expand */}
+      {allIssues.length > 0 && !showErrorPanel && (
+        <button
+          onClick={() => setShowErrorPanel(true)}
+          className="absolute bottom-0 right-3 z-20 mb-1 flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-950/90 border border-rose-700 text-rose-300 text-[10px] font-bold shadow-lg cursor-pointer hover:bg-rose-900 transition-all"
+        >
+          <AlertTriangle className="w-3 h-3" />
+          <span>{errorCount + warningCount} issue{(errorCount + warningCount) > 1 ? "s" : ""}</span>
+          <ChevronDown className="w-3 h-3" />
+        </button>
       )}
 
       {/* Validation Status Footer */}

@@ -27,6 +27,8 @@ export interface ErrorTrackingState {
  */
 export function useErrorTracking(
   completedLabIds: string[],
+  completedWalkthroughIds: string[],
+  completedDrillIds: string[],
   currentWalkthroughIndex: number,
   totalXp: number,
 ): ErrorTrackingState {
@@ -51,8 +53,8 @@ export function useErrorTracking(
   );
 
   const progressSummary = useMemo(
-    () => calculateCourseProgress(completedLabIds, currentWalkthroughIndex, totalXp, loggedErrors),
-    [completedLabIds, currentWalkthroughIndex, totalXp, loggedErrors],
+    () => calculateCourseProgress(completedLabIds, completedWalkthroughIds, completedDrillIds, currentWalkthroughIndex, totalXp, loggedErrors),
+    [completedLabIds, completedWalkthroughIds, completedDrillIds, currentWalkthroughIndex, totalXp, loggedErrors],
   );
 
   const unresolvedErrorCount = useMemo(

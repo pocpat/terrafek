@@ -102,9 +102,10 @@ export const StateInspector: React.FC<StateInspectorProps> = ({
             </h4>
 
             {state.resources.length === 0 ? (
-              <div className="p-6 text-center border border-dashed border-stone-300 rounded-xl text-xs text-stone-500 bg-white">
-                No active resources in state yet. Run{" "}
-                <code className="text-stone-900 font-mono font-semibold bg-stone-100 px-1 py-0.5 rounded">terraform apply</code> first to provision infrastructure.
+              <div className="p-6 text-center border border-dashed border-amber-300 rounded-xl text-xs text-stone-600 bg-amber-50/50">
+                <ShieldAlert className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                <p className="font-semibold text-stone-700 mb-1">No resources in state yet</p>
+                <p>Run <code className="text-stone-900 font-mono font-semibold bg-white border border-stone-200 px-1 py-0.5 rounded">terraform apply</code> first to provision infrastructure, then come back here to inject drift.</p>
               </div>
             ) : (
               <div className="space-y-3">

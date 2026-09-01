@@ -65,17 +65,23 @@ export const Header: React.FC<HeaderProps> = ({
   // Level calculation: 250 XP per level
   const userLevel = Math.floor(totalXp / 250) + 1;
 
+  // Unified button base classes — all buttons use these for consistent sizing
+  const btnBase = "px-2 py-1 rounded-md text-[11px] font-sans font-medium flex items-center space-x-1 transition-all cursor-pointer whitespace-nowrap";
+  const btnActive = "bg-stone-900 text-white font-bold";
+  const btnInactive = "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50";
+  const btnOutline = "px-2 py-1 rounded-md text-[11px] font-sans font-medium flex items-center space-x-1 transition-all cursor-pointer whitespace-nowrap bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 hover:text-stone-900";
+
   return (
     <header className="border-b border-stone-200 bg-white text-stone-900 sticky top-0 z-30 select-none shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Brand - Clickable to return to Dashboard */}
+        <div className="flex items-center justify-between h-14 gap-4">
+          {/* Logo & Brand — clean, no badge */}
           <button
             onClick={() => setActiveMode("dashboard")}
-            className="flex items-center space-x-3 text-left group cursor-pointer focus:outline-none"
+            className="flex items-center space-x-2.5 text-left group cursor-pointer focus:outline-none shrink-0"
             title="Go to TerrafEK Dashboard & Syllabus"
           >
-            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-sm bg-[#0a0c16] flex items-center justify-center group-hover:scale-105 transition-all shrink-0">
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm bg-[#0a0c16] flex items-center justify-center group-hover:scale-105 transition-all shrink-0">
               <img
                 src={terrafekLogo}
                 alt="TerrafEK Logo"
@@ -83,73 +89,52 @@ export const Header: React.FC<HeaderProps> = ({
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-serif font-bold text-lg tracking-tight text-stone-900 group-hover:text-stone-700 transition-colors">
-                  Terraf<span className="text-indigo-600 font-extrabold font-sans">EK</span>
-                </span>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-700 border border-stone-200">
-                  CloudOps
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-500 font-sans">Visual Terraform & Diagnostics</p>
+            <div className="flex flex-col leading-tight">
+              <span className="font-serif font-bold text-sm tracking-tight text-stone-900 group-hover:text-stone-700 transition-colors">
+                Terraf<span className="text-indigo-600 font-extrabold font-sans">EK</span>
+              </span>
+              <span className="text-[10px] text-stone-500 font-sans">Visual Terraform</span>
             </div>
           </button>
 
-          {/* Mode Switcher & Selectors */}
-          <div className="flex items-center space-x-1 sm:space-x-1.5 md:space-x-2">
+          {/* Center: Mode Switcher & Selectors */}
+          <div className="flex items-center space-x-1.5">
             {/* Primary Modes Group */}
-            <div className="flex p-0.5 bg-stone-100 border border-stone-200 rounded-lg">
+            <div className="flex p-0.5 bg-stone-100 border border-stone-200 rounded-md">
               <button
                 id="btn-mode-dashboard"
                 onClick={() => setActiveMode("dashboard")}
-                className={`px-2 py-1 rounded-md text-[11px] font-sans font-medium transition-all flex items-center space-x-1 cursor-pointer ${
-                  activeMode === "dashboard"
-                    ? "bg-white text-stone-900 shadow-2xs border border-stone-200/80 font-bold"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                }`}
+                className={`${btnBase} ${activeMode === "dashboard" ? btnActive : btnInactive}`}
                 title="Roadmap & Syllabus: Course overview and topic breakdown"
               >
-                <Compass className="w-3 h-3 text-stone-700" />
+                <Compass className={`w-3 h-3 ${activeMode === "dashboard" ? "text-white" : "text-stone-700"}`} />
                 <span className="hidden xl:inline">Roadmap</span>
               </button>
               <button
                 id="btn-mode-walkthrough"
                 onClick={() => setActiveMode("walkthrough")}
-                className={`px-2 py-1 rounded-md text-[11px] font-sans font-medium transition-all flex items-center space-x-1 cursor-pointer ${
-                  activeMode === "walkthrough"
-                    ? "bg-white text-stone-900 shadow-2xs border border-stone-200/80 font-bold"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                }`}
+                className={`${btnBase} ${activeMode === "walkthrough" ? btnActive : btnInactive}`}
                 title="Visual Walkthroughs: Interactive guided concept walkthroughs"
               >
-                <BookOpen className="w-3 h-3 text-indigo-600" />
+                <BookOpen className={`w-3 h-3 ${activeMode === "walkthrough" ? "text-white" : "text-indigo-600"}`} />
                 <span className="hidden xl:inline">Walkthroughs</span>
               </button>
               <button
                 id="btn-mode-labs"
                 onClick={() => setActiveMode("lab")}
-                className={`px-2 py-1 rounded-md text-[11px] font-sans font-medium transition-all flex items-center space-x-1 cursor-pointer ${
-                  activeMode === "lab"
-                    ? "bg-white text-stone-900 shadow-2xs border border-stone-200/80 font-bold"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                }`}
+                className={`${btnBase} ${activeMode === "lab" ? btnActive : btnInactive}`}
                 title={`Hands-on Labs: Completed ${completedCount} of ${totalLabs}`}
               >
-                <Layers className="w-3 h-3 text-sky-600" />
+                <Layers className={`w-3 h-3 ${activeMode === "lab" ? "text-white" : "text-sky-600"}`} />
                 <span className="hidden xl:inline">Labs ({completedCount}/{totalLabs})</span>
               </button>
               <button
                 id="btn-mode-sandbox"
                 onClick={() => setActiveMode("sandbox")}
-                className={`px-2 py-1 rounded-md text-[11px] font-sans font-medium transition-all flex items-center space-x-1 cursor-pointer ${
-                  activeMode === "sandbox"
-                    ? "bg-white text-stone-900 shadow-2xs border border-stone-200/80 font-bold"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                }`}
+                className={`${btnBase} ${activeMode === "sandbox" ? btnActive : btnInactive}`}
                 title="Freeform Sandbox: Test any Terraform HCL with full CLI simulator"
               >
-                <Terminal className="w-3 h-3 text-emerald-600" />
+                <Terminal className={`w-3 h-3 ${activeMode === "sandbox" ? "text-white" : "text-emerald-600"}`} />
                 <span className="hidden xl:inline">Sandbox</span>
               </button>
             </div>
@@ -161,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
                   id="select-walkthrough-dropdown"
                   value={currentWalkthroughIndex}
                   onChange={(e) => onSelectWalkthrough(Number(e.target.value))}
-                  className="bg-white border border-stone-200 hover:border-stone-300 text-stone-800 text-[11px] font-sans font-medium rounded-lg px-2.5 py-1 pr-6 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors appearance-none cursor-pointer shadow-2xs max-w-[150px] md:max-w-[200px] truncate"
+                  className="bg-white border border-stone-200 hover:border-stone-300 text-stone-800 text-[11px] font-sans font-medium rounded-md px-2 py-1 pr-6 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors appearance-none cursor-pointer max-w-[150px] md:max-w-[200px] truncate"
                   title="Choose Guided Walkthrough Topic"
                 >
                   {WALKTHROUGHS_DATA.map((wt, index) => (
@@ -183,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
                   id="select-lab-dropdown"
                   value={currentLabIndex}
                   onChange={(e) => onSelectLab(Number(e.target.value))}
-                  className="bg-white border border-stone-200 hover:border-stone-300 text-stone-800 text-[11px] font-sans font-medium rounded-lg px-2.5 py-1 pr-6 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors appearance-none cursor-pointer shadow-2xs max-w-[150px] md:max-w-[200px] truncate"
+                  className="bg-white border border-stone-200 hover:border-stone-300 text-stone-800 text-[11px] font-sans font-medium rounded-md px-2 py-1 pr-6 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors appearance-none cursor-pointer max-w-[150px] md:max-w-[200px] truncate"
                   title="Choose Hands-on Lab"
                 >
                   {LABS_DATA.map((lab, index) => {
@@ -201,16 +186,12 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
-            {/* View Mode Switcher: Study (Focus Reading) vs Split Workspace */}
+            {/* View Mode Switcher: Study vs Split */}
             {(activeMode === "walkthrough" || activeMode === "lab" || activeMode === "drill") && onToggleWorkspaceViewMode && (
-              <div className="flex p-0.5 bg-stone-100 border border-stone-200 rounded-lg">
+              <div className="flex p-0.5 bg-stone-100 border border-stone-200 rounded-md">
                 <button
                   onClick={() => onToggleWorkspaceViewMode("study")}
-                  className={`px-2 py-1 rounded-md flex items-center space-x-1 text-[11px] font-sans font-medium transition-all cursor-pointer ${
-                    workspaceViewMode === "study"
-                      ? "bg-white text-stone-900 shadow-2xs font-bold"
-                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                  }`}
+                  className={`${btnBase} ${workspaceViewMode === "study" ? "bg-white text-stone-900 font-bold" : btnInactive}`}
                   title="Reading Mode: Focus solely on visual concepts and reading guide"
                 >
                   <BookOpen className="w-3 h-3 text-indigo-600" />
@@ -218,11 +199,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
                 <button
                   onClick={() => onToggleWorkspaceViewMode("split")}
-                  className={`px-2 py-1 rounded-md flex items-center space-x-1 text-[11px] font-sans font-medium transition-all cursor-pointer ${
-                    workspaceViewMode === "split"
-                      ? "bg-white text-stone-900 shadow-2xs font-bold"
-                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/50"
-                  }`}
+                  className={`${btnBase} ${workspaceViewMode === "split" ? "bg-white text-stone-900 font-bold" : btnInactive}`}
                   title="Split Practice Mode: Opens Code Editor & Live Cloud Visualizer"
                 >
                   <Columns className="w-3 h-3 text-stone-700" />
@@ -230,41 +207,23 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Workspace Workflow Notes explanation button */}
-            {(workspaceViewMode !== "study" || activeMode === "sandbox") && onToggleWorkspaceNotes && (
-              <button
-                id="btn-toggle-workspace-notes"
-                onClick={onToggleWorkspaceNotes}
-                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-sans font-medium transition-all cursor-pointer shadow-2xs ${
-                  showWorkspaceNotes
-                    ? "bg-indigo-600 border-indigo-700 text-white shadow-xs font-semibold"
-                    : "bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200 text-indigo-900 font-semibold"
-                }`}
-                title="Workflow Step Guide: Step-by-step instructions on how to use the 3 workspace panels"
-              >
-                <Compass className={`w-3.5 h-3.5 ${showWorkspaceNotes ? "text-white" : "text-indigo-600"}`} />
-                <span className="hidden sm:inline">{showWorkspaceNotes ? "Hide Step Guide" : "How to use Lab"}</span>
-                <span className="sm:hidden">{showWorkspaceNotes ? "Hide" : "Guide"}</span>
-              </button>
-            )}
           </div>
 
-          {/* Gamification Stats & Tools */}
-          <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+          {/* Right: Gamification Stats & Tools */}
+          <div className="flex items-center space-x-1.5 shrink-0">
             {/* Level & XP Badge */}
-            <div 
-              className="flex items-center space-x-1.5 px-2 py-1 bg-stone-50 border border-stone-200 rounded-lg text-[11px] font-sans cursor-default"
+            <div
+              className="flex items-center space-x-1 px-2 py-1 bg-stone-50 border border-stone-200 rounded-md text-[11px] font-sans cursor-default"
               title={`Current Player Rank: Level ${userLevel} with ${totalXp} total XP earned`}
             >
-              <div className="flex items-center space-x-1 text-amber-700">
+              <div className="flex items-center space-x-0.5 text-amber-700">
                 <Flame className="w-3 h-3 fill-amber-600 text-amber-600" />
-                <span className="font-bold font-mono text-[10.5px]">Lvl {userLevel}</span>
+                <span className="font-bold font-mono text-[10px]">Lvl {userLevel}</span>
               </div>
               <span className="text-stone-300">|</span>
-              <div className="flex items-center space-x-1 text-stone-700">
+              <div className="flex items-center space-x-0.5 text-stone-700">
                 <Award className="w-3 h-3 text-stone-600" />
-                <span className="font-semibold font-mono text-[10.5px]">{totalXp} XP</span>
+                <span className="font-semibold font-mono text-[10px]">{totalXp} XP</span>
               </div>
             </div>
 
@@ -272,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-open-ai-mentor"
               onClick={onOpenAiMentor}
-              className="px-2 py-1 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-sans font-medium flex items-center space-x-1 shadow-2xs transition-all border border-stone-800 cursor-pointer"
+              className="px-2 py-1 rounded-md bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-sans font-medium flex items-center space-x-1 transition-all border border-stone-800 cursor-pointer whitespace-nowrap"
               title="Ask AI Terraform Mentor for instant HCL code reviews, debug tips, and concept explanations"
             >
               <Sparkles className="w-3 h-3 text-amber-300" />
@@ -283,10 +242,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-open-quiz"
               onClick={onOpenQuiz}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 hover:text-stone-900 transition-colors shadow-2xs flex items-center space-x-1 text-[11px] font-sans font-medium cursor-pointer"
+              className={`${btnOutline}`}
               title="Practice Scenarios & Interactive Certification Exam Quizzes"
             >
-              <HelpCircle className="w-3.5 h-3.5 text-stone-600" />
+              <HelpCircle className="w-3 h-3 text-stone-600" />
               <span className="hidden xl:inline">Quiz</span>
             </button>
 
@@ -294,10 +253,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-open-cheatsheet"
               onClick={onOpenCheatSheet}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 hover:text-stone-900 transition-colors shadow-2xs flex items-center space-x-1 text-[11px] font-sans font-medium cursor-pointer"
+              className={`${btnOutline}`}
               title="Visual HCL Syntax, Meta-arguments, & CLI Command Cheat Sheet"
             >
-              <BookOpen className="w-3.5 h-3.5 text-stone-600" />
+              <BookOpen className="w-3 h-3 text-stone-600" />
               <span className="hidden xl:inline">Cheat Sheet</span>
             </button>
           </div>
@@ -314,4 +273,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
