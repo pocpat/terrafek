@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Sparkles,
   X,
@@ -66,6 +66,16 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
   const [showKeyGate, setShowKeyGate] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [keyError, setKeyError] = useState("");
+
+  // New users get the explanation immediately: no stored key -> gate opens
+  // with the modal (they can close the gate to browse the chat, but any
+  // mentor action re-opens it).
+  useEffect(() => {
+    if (isOpen && !getStoredApiKey()) {
+      setShowKeyGate(true);
+    }
+    if (!isOpen) setShowKeyGate(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
