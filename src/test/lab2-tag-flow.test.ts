@@ -21,7 +21,7 @@ resource "aws_instance" "web_server" {
 `;
 const FILES = { "main.tf": USER_MAIN_TF };
 
-describe("lab-2 task-6 repro: apply flow must satisfy the tag check", () => {
+describe("lab-2 regression: tag tasks must pass through the real apply flow", () => {
   const lab = LABS_DATA.find((l) => l.id === "lab-2-core-workflow")!;
   const task6 = lab.tasks.find((t) => t.id === "task-6")!;
 
