@@ -96,8 +96,11 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
       setKeyInput("");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: "✅ Key connected — the mentor now runs on **your own Gemini quota**. Ask me anything about your lab!" },
+        { role: "assistant", text: "✅ Key connected — the mentor runs on **your own** Gemini quota. I'm here whenever a question comes up during the labs — just open me via the ✨ button." },
       ]);
+      // Whatever the user decides (connect or skip), the first visit ends with
+      // the modal CLOSED — learning starts immediately; questions arrive later.
+      window.setTimeout(() => onClose(), 900);
     } else {
       setKeyError("That doesn't look like a Gemini API key. Keys start with \"AIza\" and are about 39 characters long.");
     }
