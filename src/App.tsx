@@ -44,6 +44,7 @@ import { useGamification } from "./hooks/useGamification";
 import { useErrorTracking } from "./hooks/useErrorTracking";
 import { useModals } from "./hooks/useModals";
 import { useTerraformSession } from "./hooks/useTerraformSession";
+import { useModelHealth } from "./hooks/useModelHealth";
 
 export default function App() {
   // 1. Navigation: mode, lab/walkthrough/drill indices, dashboard nav
@@ -154,8 +155,18 @@ export default function App() {
     setWorkspaceViewMode("study");
   };
 
+  // Agent #10 — Model Health: daily check that the AI model still exists; auto-migrates if retired
+  const modelHealth = useModelHealth();
+
   return (
     <div className="flex flex-col h-screen bg-[#FAFAFA] text-stone-900 overflow-hidden font-sans select-none">
+      {/* Model Health banner (Agent #10) */}
+      {modelHealth.note && (
+        <div className="px-4 py-1 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-[11px] font-mono flex items-center justify-between gap-3">
+          <span>{modelHealth.note}</span>
+          <span className="text-[10px] opacity-70 shrink-0">active: {modelHealth.activeModel}</span>
+        </div>
+      )}
       {/* 1. Global App Header */}
       <Header
         currentLabIndex={currentLabIndex}

@@ -13,8 +13,17 @@
  */
 
 const STORAGE_KEY = "terrafek_gemini_api_key";
-const GEMINI_MODEL = "gemini-3.6-flash";
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const ACTIVE_MODEL_STORAGE_KEY = "terrafek_gemini_model";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+
+/** Active model = per-browser override (set by the Model Health agent) or the default. */
+export function getActiveGeminiModel(): string {
+  try {
+    return window.localStorage.getItem(ACTIVE_MODEL_STORAGE_KEY) || DEFAULT_GEMINI_MODEL;
+  } catch {
+    return DEFAULT_GEMINI_MODEL;
+  }
+}
 
 export class MissingApiKeyError extends Error {
   constructor() {
@@ -127,7 +136,9 @@ Provide a clear, engaging answer with concise code examples if applicable.`;
 /** Direct browser -> Google call using the VISITOR'S OWN key. */
 async function callGeminiDirect(apiKey: string, req: MentorRequest): Promise<string> {
   const { system, prompt } = buildMentorPrompt(req);
-  const res = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+  const model = getActiveGeminiModel(); // may have been auto-migrated by the Model Health agent
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
