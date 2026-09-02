@@ -167,29 +167,48 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
   };
 
   const keyGate = (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[#FAFAFA] overflow-y-auto custom-scrollbar">
-      <div className="w-full max-w-md bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-5 bg-[#FAFAFA] flex flex-col items-center">
+      {/* 1. WHY / WHAT / HOW / IF YOU SKIP — so the user can decide with full information */}
+      <div className="w-full max-w-md bg-white border border-stone-200 rounded-2xl p-4 shadow-sm mb-3">
+        <h4 className="text-sm font-serif font-bold text-stone-900 mb-2">About the AI Mentor</h4>
+        <ul className="space-y-2 text-[11px] text-stone-600 leading-relaxed">
+          <li>
+            <span className="font-semibold text-stone-900">Why:</span> the mentor explains your Terraform
+            plans, gives progressive hints, and diagnoses your errors — powered by Google's Gemini.
+          </li>
+          <li>
+            <span className="font-semibold text-stone-900">What we ask:</span> connect <span className="font-semibold">your own</span> free
+            Gemini key. Every user bills their own (free-tier) quota — TerrafEK doesn't spend anyone else's.
+          </li>
+          <li>
+            <span className="font-semibold text-stone-900">How:</span> create a key at{" "}
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="text-stone-900 font-semibold underline decoration-stone-300 hover:decoration-stone-900 inline-flex items-center space-x-0.5"
+            >
+              <span>aistudio.google.com/apikey</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>{" "}
+            (Google account → "Create API key", about 2 minutes), then paste it below.
+          </li>
+          <li>
+            <span className="font-semibold text-stone-900">If you skip it:</span> the Lab works fully without
+            AI — all labs, terminals, walkthroughs, and quizzes. You simply won't have the AI mentor, and you
+            can connect a key anytime via the ✨ button.
+          </li>
+        </ul>
+      </div>
+
+      {/* 2. The action card: title -> input -> server-side explanation */}
+      <div className="w-full max-w-md bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
         <div className="flex items-center space-x-2.5 mb-3">
           <div className="p-2 rounded-xl bg-stone-900 text-white shadow-xs">
             <KeyRound className="w-4 h-4" />
           </div>
           <h4 className="text-sm font-serif font-bold text-stone-900">Connect your Gemini key</h4>
         </div>
-
-        <p className="text-[11px] text-stone-600 leading-relaxed mb-3">
-          Get a free key at{" "}
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noreferrer"
-            className="text-stone-900 font-semibold underline decoration-stone-300 hover:decoration-stone-900 inline-flex items-center space-x-0.5"
-          >
-            <span>aistudio.google.com/apikey</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>{" "}
-          (Google account → "Create API key"). It stays in <span className="font-mono">localStorage</span> on
-          this device and is sent only to Google's API — your usage counts against <span className="font-semibold">your own free quota</span>.
-        </p>
 
         <div className="flex items-center space-x-2">
           <input
@@ -218,7 +237,9 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
         )}
 
         <p className="mt-3 text-[10px] text-stone-400 leading-relaxed">
-          TerrafEK has no server-side access to this key and never sees your conversations with Google.
+          The key is stored only in this browser's <span className="font-mono">localStorage</span> and is sent
+          only to Google's API. TerrafEK has no server-side access to it and never sees your conversations
+          with Google.
         </p>
 
         {hasOwnKey && (
@@ -231,6 +252,14 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
           </button>
         )}
       </div>
+
+      {/* 3. The informed "no thanks" path */}
+      <button
+        onClick={() => { setShowKeyGate(false); setKeyError(""); }}
+        className="mt-3 text-[11px] text-stone-500 hover:text-stone-900 underline decoration-stone-300 hover:decoration-stone-900 transition-colors"
+      >
+        Skip for now — I'll use the Lab without AI
+      </button>
     </div>
   );
 
