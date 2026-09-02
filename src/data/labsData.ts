@@ -152,16 +152,16 @@ resource "aws_s3_bucket" "analytics_bucket" {
       {
         id: "task-5",
         description: "Add tags to your EC2 instance. Inside the resource block, add a tags block with Name set to Primary-Web-Server and Environment set to Dev.",
-        hint: "Add a tags block inside the resource:\n  tags = {\n    Name        = \"Primary-Web-Server\"\n    Environment = \"Dev\"\n  }",
+        hint: "Add a tags block inside the resource:\n  tags = {\n    Name        = \"Primary-Web-Server\"\n    Environment = \"Dev\"\n  }\nTag keys are case-sensitive in AWS: it must be exactly Name (capital N), not name.",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return main.includes("Primary-Web-Server") && main.includes("Environment");
+          return /\bName\s*=\s*"Primary-Web-Server"/.test(main) && /\bEnvironment\s*=\s*"Dev"/.test(main);
         }
       },
       {
         id: "task-6",
         description: "Run 'terraform apply' again to apply the tag update to the running instance.",
-        hint: "Type 'terraform apply' again. Terraform will detect the new tags and update the existing instance in-place.",
+        hint: "Type 'terraform apply' again. Terraform will detect the new tags and update the existing instance in-place. Stuck grey? Tag keys are case-sensitive — the key must be exactly Name (capital N), matching the task wording.",
         validationCheck: (_codeMap, state) => {
           const res = state.resources.find((r) => r.type === "aws_instance" && r.name === "web_server");
           if (!res) return false;
