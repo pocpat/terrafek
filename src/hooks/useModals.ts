@@ -21,11 +21,21 @@ export interface ModalsState {
 
 /**
  * Manages all modal/drawer open-close state and the AI mentor initial prompt.
- * No persistence needed — modals always start closed on page load.
+ * The AI Mentor auto-opens on load for visitors with no Gemini key connected
+ * (they can dismiss it once; a small "dismissed" flag stops it nagging on
+ * every reload until they clear their storage).
  */
 export function useModals(): ModalsState {
   const [selectedResource, setSelectedResource] = useState<ParsedResource | null>(null);
-  const [isAiMentorOpen, setIsAiMentorOpen] = useState(false);
+  const [isAiMentorOpen, setIsAiMentorOpen] = useState(() => {
+    try {
+      const hasKey = !!window.localStorage.getItem("terrafek_gemini_api_key");
+      const dismissed = window.localStorage.getItem("terrafek_key_gate_dismissed") === "1";
+      return !hasKey && !dismissed;
+    } catch {
+      return false; // localStorage unavailable — behave conservatively
+    }
+  });
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isCheatSheetOpen, setIsCheatSheetOpen] = useState(false);
   const [isSolutionOpen, setIsSolutionOpen] = useState(false);

@@ -69,12 +69,21 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
 
   // New users get the explanation immediately: no stored key -> gate opens
   // with the modal (they can close the gate to browse the chat, but any
-  // mentor action re-opens it).
+  // mentor action re-opens it). Closing the modal without connecting a key
+  // sets a one-time "dismissed" flag so the auto-open doesn't nag every reload.
   useEffect(() => {
-    if (isOpen && !getStoredApiKey()) {
-      setShowKeyGate(true);
+    if (isOpen) {
+      if (!getStoredApiKey()) setShowKeyGate(true);
+      return;
     }
-    if (!isOpen) setShowKeyGate(false);
+    setShowKeyGate(false);
+    if (!getStoredApiKey()) {
+      try {
+        window.localStorage.setItem("terrafek_key_gate_dismissed", "1");
+      } catch {
+        /* private browsing */
+      }
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -97,7 +106,12 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
   const removeKey = () => {
     clearApiKey();
     setHasOwnKey(false);
-    setShowKeyGate(false);
+    setShowKeyGate(true); // they're keyless again — show the connect card right away
+    try {
+      window.localStorage.removeItem("terrafek_key_gate_dismissed");
+    } catch {
+      /* private browsing */
+    }
     setMessages((prev) => [
       ...prev,
       { role: "assistant", text: "🗑️ Stored key removed from this browser. The mentor is disconnected." },
