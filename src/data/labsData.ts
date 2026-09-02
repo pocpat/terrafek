@@ -48,13 +48,14 @@ export const LABS_DATA: LabDefinition[] = [
       {
         id: "task-3",
         description: "Add a tags block with Environment = 'Production' and ManagedBy = 'Terraform'.",
-        hint: "Inside the resource, add: tags = { Environment = \"Production\" ManagedBy = \"Terraform\" }",
+        hint: "Inside the resource, add: tags = { Environment = \"Production\" ManagedBy = \"Terraform\" }\nTag keys are case-sensitive in AWS — exactly Environment and ManagedBy (capital first letters), not environment / managedBy.",
         validationCheck: (codeMap) => {
           const main = (codeMap["main.tf"] || "").replace(/\s+/g, " ");
-          const hasTagsBlock = main.includes("tags");
-          // Accept either "Environment" or "environment" (case-insensitive check on the key)
-          const hasEnvTag = /[Ee]nvironment\s*=\s*"?[Pp]roduction"?/.test(main);
-          return hasTagsBlock && hasEnvTag;
+          const hasTagsBlock = /\btags\s*=\s*\{/.test(main);
+          // Tag keys are case-sensitive in AWS: require the exact keys from the task.
+          const hasEnvTag = /\bEnvironment\s*=\s*"Production"/.test(main);
+          const hasManagedBy = /\bManagedBy\s*=\s*"Terraform"/.test(main);
+          return hasTagsBlock && hasEnvTag && hasManagedBy;
         }
       },
       {

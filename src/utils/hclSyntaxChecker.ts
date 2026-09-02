@@ -20,6 +20,11 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
   const issues: SyntaxIssue[] = [];
   const lines = code.split("\n");
 
+  // Canonical AWS tag keys used across the course. AWS tag keys are
+  // case-sensitive: "name" creates a DIFFERENT tag than "Name".
+  const CANONICAL_TAG_KEYS = ["Name", "Environment", "ManagedBy"];
+  let inTagsBlock = false;
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const line = rawLine.trim();
@@ -28,6 +33,11 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     if (!line || line.startsWith("#") || line.startsWith("//") || line.startsWith("/*")) {
       continue;
     }
+
+    // Track whether we are inside a `tags = { ... }` block (bookkeeping must
+    // happen before the generic "}" skip below, or the flag would stick).
+    if (/^tags\s*=\s*\{/.test(line)) inTagsBlock = true;
+    if (line === "}") inTagsBlock = false;
 
     // Skip block headers (resource "type" "name" {) and closing braces
     if (line === "}" || line === "]" || line === "{" || line === "[") {
@@ -124,6 +134,26 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
             fixHint: `Wrap the value in double quotes: "${val}" → ""${val}""`,
           });
         }
+      }
+    }
+
+    // --- Check 5: Wrong-cased canonical tag keys ---
+    // Inside a tags block, "name"/"environment"/"managedby" are different tags
+    // from "Name"/"Environment"/"ManagedBy" (AWS tag keys are case-sensitive).
+    // Beginners hit this constantly; the parser accepts it silently, so warn
+    // on the exact line.
+    if (inTagsBlock && attrMatch) {
+      const key = attrMatch[1];
+      const canonical = CANONICAL_TAG_KEYS.find((c) => c.toLowerCase() === key.toLowerCase());
+      if (canonical && key !== canonical) {
+        issues.push({
+          line: i + 1,
+          column: rawLine.indexOf(key) + 1,
+          severity: "warning",
+          message: `Tag key "${key}" has the wrong case — AWS tag keys are case-sensitive.`,
+          eli5: `You wrote "${key}", but the task (and AWS convention) requires exactly "${canonical}". A differently-cased key creates a DIFFERENT tag, so checklist steps that verify "${canonical}" will stay grey.`,
+          fixHint: `Rename the key to "${canonical}"`,
+        });
       }
     }
   }
