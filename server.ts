@@ -89,7 +89,7 @@ function getGeminiClient(): GoogleGenAI | null {
 
 // Configurable model name — defaults to gemini-2.5-flash if not set.
 // Override with GEMINI_MODEL env var to switch models without code changes.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 // --- Health check ---
 app.get("/api/health", (_req, res) => {
