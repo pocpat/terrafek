@@ -54,6 +54,7 @@ interface CurriculumDashboardProps {
   onClearErrorHistory?: () => void;
   onAskAiMentor?: (prompt: string) => void;
   onOpenAiMentor?: (prompt?: string) => void;
+  personalDrills?: import("../types/terraform").RemediationDrill[];
 }
 
 export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
@@ -71,7 +72,8 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   onResolveError,
   onClearErrorHistory,
   onAskAiMentor,
-  onOpenAiMentor
+  onOpenAiMentor,
+  personalDrills
 }) => {
   const [activeTab, setActiveTab] = useState<"syllabus" | "diagnostics" | "drills" | "reference">("syllabus");
   const [searchFilter, setSearchFilter] = useState("");
@@ -296,7 +298,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               }`}
             >
               <Target className="w-3.5 h-3.5" />
-              <span>Fill The Gap Drills ({REMEDIATION_DRILLS_DATA.length})</span>
+              <span>Fill The Gap Drills ({REMEDIATION_DRILLS_DATA.length + (personalDrills?.length || 0)})</span>
             </button>
           </div>
 
@@ -871,7 +873,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {REMEDIATION_DRILLS_DATA.map((drill) => (
+              {[...REMEDIATION_DRILLS_DATA, ...(personalDrills || [])].map((drill) => (
                 <div
                   key={drill.id}
                   className="bg-white border border-stone-200 rounded-2xl p-5 shadow-2xs space-y-4 flex flex-col justify-between hover:border-stone-400 transition-all"
@@ -881,6 +883,11 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-800 font-mono text-[10.5px] font-bold border border-stone-200 uppercase">
                         {SKILL_DOMAINS_INFO[drill.domain].title}
                       </span>
+                      {drill.id.startsWith("micro-") && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[9.5px] font-sans font-bold border border-amber-200">
+                          🎯 PERSONAL
+                        </span>
+                      )}
                       <div className="flex items-center space-x-1 text-xs text-stone-500 font-mono">
                         <Clock className="w-3.5 h-3.5" />
                         <span>{drill.estimatedMinutes}m</span>

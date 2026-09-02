@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { LABS_DATA } from "../data/labsData";
 import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "../data/remediationDrillsData";
@@ -22,6 +22,9 @@ export interface NavigationState {
   currentLab: (typeof LABS_DATA)[number];
   currentWalkthrough: (typeof WALKTHROUGHS_DATA)[number];
   currentDrill: RemediationDrill;
+  personalDrills: RemediationDrill[];
+  registerPersonalDrill: (drill: RemediationDrill) => void;
+  startPersonalDrill: (drill: RemediationDrill) => void;
 }
 
 /**
@@ -48,9 +51,40 @@ export function useNavigation(): NavigationState {
 
   const [currentDrillIndex, setCurrentDrillIndex] = useState<number>(0);
 
+  // Personal micro-labs (Phase 3, agent #12): appended after the static drills
+  // so static indices — used by analytics/recommendations — are untouched.
+  const [personalDrills, setPersonalDrills] = useState<RemediationDrill[]>([]);
+
   const currentLab = LABS_DATA[currentLabIndex] || LABS_DATA[0];
   const currentWalkthrough = WALKTHROUGHS_DATA[currentWalkthroughIndex] || WALKTHROUGHS_DATA[0];
-  const currentDrill = REMEDIATION_DRILLS_DATA[currentDrillIndex] || REMEDIATION_DRILLS_DATA[0];
+  const allDrills = useMemo(
+    () => [...REMEDIATION_DRILLS_DATA, ...personalDrills],
+    [personalDrills]
+  );
+  const currentDrill = allDrills[currentDrillIndex] || REMEDIATION_DRILLS_DATA[0];
+
+  /** Register a freshly-built micro-lab into the pool (no navigation side effects). */
+  const registerPersonalDrill = (drill: RemediationDrill) => {
+    setPersonalDrills((prev) => {
+      if (prev.some((d) => d.id === drill.id)) return prev;
+      return [...prev, drill];
+    });
+  };
+
+  /** Register (if needed) and jump straight into a personal micro-lab. */
+  const startPersonalDrill = (drill: RemediationDrill) => {
+    setPersonalDrills((prev) => {
+      const idx = prev.findIndex((d) => d.id === drill.id);
+      if (idx >= 0) {
+        setCurrentDrillIndex(REMEDIATION_DRILLS_DATA.length + idx);
+        return prev;
+      }
+      const next = [...prev, drill];
+      setCurrentDrillIndex(REMEDIATION_DRILLS_DATA.length + next.length - 1);
+      return next;
+    });
+    setActiveMode("drill");
+  };
 
   // Persist navigation state
   // NOTE: activeMode is intentionally NOT persisted — the app always opens
@@ -74,5 +108,8 @@ export function useNavigation(): NavigationState {
     currentLab,
     currentWalkthrough,
     currentDrill,
+    personalDrills,
+    registerPersonalDrill,
+    startPersonalDrill,
   };
 }

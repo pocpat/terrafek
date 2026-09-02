@@ -45,6 +45,8 @@ import { useErrorTracking } from "./hooks/useErrorTracking";
 import { useModals } from "./hooks/useModals";
 import { useTerraformSession } from "./hooks/useTerraformSession";
 import { useModelHealth } from "./hooks/useModelHealth";
+import { recordMistake, getMistakesList, buildMicroLab, getBuiltMicroLabs } from "./utils/mistakeTracker";
+import { useRef } from "react";
 
 export default function App() {
   // 1. Navigation: mode, lab/walkthrough/drill indices, dashboard nav
@@ -54,6 +56,7 @@ export default function App() {
     currentWalkthroughIndex, setCurrentWalkthroughIndex,
     currentDrillIndex, setCurrentDrillIndex,
     currentLab, currentWalkthrough, currentDrill,
+    personalDrills, registerPersonalDrill, startPersonalDrill,
   } = useNavigation();
 
   // 2. Workspace layout: resizable panels, terminal, drag handlers
@@ -88,6 +91,32 @@ export default function App() {
     aiInitialPrompt, setAiInitialPrompt,
     validationStatus, setValidationStatus,
   } = useModals();
+
+  // ── AGENT #11 + #12 (Phase 3): Mistake Tracker + Gap-Fill Builder ──
+  const [mistakeBanner, setMistakeBanner] = useState<{ subjectId: string; label: string; drill: import("./types/terraform").RemediationDrill } | null>(null);
+  const prevLoggedErrorsLen = useRef(0);
+
+  useEffect(() => {
+    const prevLen = prevLoggedErrorsLen.current;
+    prevLoggedErrorsLen.current = loggedErrors.length;
+    // Only new errors strike; old ones were counted when they arrived.
+    for (let i = prevLen; i < loggedErrors.length; i++) {
+      const ev = loggedErrors[i];
+      const rec = recordMistake(ev.message || ev.command || "");
+      if (!rec || !rec.justListed) continue;
+      const subject = getMistakesList().find((m) => m.subjectId === rec.subjectId);
+      const lab = buildMicroLab(rec.subjectId);
+      if (lab) {
+        setMistakeBanner({ subjectId: rec.subjectId, label: subject?.label || rec.subjectId, drill: lab.drill });
+        registerPersonalDrill(lab.drill); // into the pool; the banner offers "Practice now"
+      }
+    }
+  }, [loggedErrors, registerPersonalDrill]);
+
+  // One-time: labs built in previous sessions join the pool again
+  useEffect(() => {
+    for (const d of getBuiltMicroLabs()) registerPersonalDrill(d);
+  }, [registerPersonalDrill]);
 
   // Code Quality Review modal — separate from useModals because it needs
   // access to the lab's solution files + student files for comparison
@@ -149,6 +178,11 @@ export default function App() {
   };
 
   const handleStartDrillFromDashboard = (drill: typeof currentDrill) => {
+    // Personal micro-labs live outside the static array — route via the hook
+    if (drill.id.startsWith("micro-")) {
+      startPersonalDrill(drill);
+      return;
+    }
     const drillIdx = REMEDIATION_DRILLS_DATA.findIndex((d) => d.id === drill.id);
     if (drillIdx >= 0) setCurrentDrillIndex(drillIdx);
     setActiveMode("drill");
@@ -165,6 +199,20 @@ export default function App() {
         <div className="px-4 py-1 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-[11px] font-mono flex items-center justify-between gap-3">
           <span>{modelHealth.note}</span>
           <span className="text-[10px] opacity-70 shrink-0">active: {modelHealth.activeModel}</span>
+        </div>
+      )}
+      {/* Mistake Tracker banner (Agent #11 + #12): 2 strikes on a subject → personal micro-lab */}
+      {mistakeBanner && (
+        <div className="px-4 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-[11px] font-sans flex items-center justify-between gap-3">
+          <span>
+            <span className="font-semibold">🎯 Personal drill unlocked:</span> you've made the "<span className="font-mono">{mistakeBanner.label}</span>" mistake twice — a 3-minute micro-lab now exists just for it.
+          </span>
+          <button
+            onClick={() => { startPersonalDrill(mistakeBanner.drill); setMistakeBanner(null); }}
+            className="shrink-0 px-2.5 py-0.5 rounded-full bg-amber-900 text-amber-50 text-[10px] font-semibold hover:bg-amber-800 transition-colors"
+          >
+            Practice now →
+          </button>
         </div>
       )}
       {/* 1. Global App Header */}
@@ -217,6 +265,7 @@ export default function App() {
               setAiInitialPrompt(prompt);
               setIsAiMentorOpen(true);
             }}
+            personalDrills={personalDrills}
           />
           </ErrorBoundary>
         </div>
