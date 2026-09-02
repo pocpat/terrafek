@@ -14,7 +14,7 @@ describe("hclSyntaxChecker — tag key case sensitivity (Check 5)", () => {
     expect(tagIssue).toBeDefined();
     expect(tagIssue!.line).toBe(4); // the `name = ...` line
     expect(tagIssue!.fixHint).toContain('"Name"');
-    expect(tagIssue!.eli5).toContain("case-sensitive");
+    expect(tagIssue!.message).toContain("case-sensitive");
   });
 
   it("does not flag correct canonical keys", () => {
