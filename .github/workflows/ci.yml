@@ -1,0 +1,24 @@
+name: TerrafEK Golden Rules
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Tests + Golden Rules (enforced gates)
+        env:
+          AUDIT_ENFORCE: "1"
+        run: npx vitest run
