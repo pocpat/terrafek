@@ -253,9 +253,9 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
         )}
       </div>
 
-      {/* 3. The informed "no thanks" path */}
+      {/* 3. The informed "no thanks" path — closes the whole modal: user opted out */}
       <button
-        onClick={() => { setShowKeyGate(false); setKeyError(""); }}
+        onClick={onClose}
         className="mt-3 text-[11px] text-stone-500 hover:text-stone-900 underline decoration-stone-300 hover:decoration-stone-900 transition-colors"
       >
         Skip for now — I'll use the Lab without AI
