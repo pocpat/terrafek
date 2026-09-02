@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { DEFAULT_GEMINI_MODEL } from "../utils/aiMentorClient";
+import { DEFAULT_GEMINI_MODEL, pickReplacement, setActiveGeminiModel } from "../utils/aiMentorClient";
 
 const HEALTH_KEY_PREFIX = "terrafek_model_health_";
 const ACTIVE_MODEL_KEY = "terrafek_gemini_model";
@@ -42,36 +42,12 @@ function getActiveModel(): string {
 }
 
 function setActiveModel(model: string): void {
-  try {
-    window.localStorage.setItem(ACTIVE_MODEL_KEY, model);
-  } catch {
-    /* private browsing — the override simply won't persist */
-  }
+  setActiveGeminiModel(model);
 }
 
-/** Newest stable gemini-N(.-N)*-flash model, excluding preview/tts/image/etc. */
-export function pickReplacement(models: string[]): string | null {
-  const candidates = models
-    .map((m) => m.replace(/^models\//, ""))
-    .filter(
-      (m) =>
-        /^gemini-\d+(\.\d+)*-flash$/.test(m) && // stable flash family only
-        !/preview|lite|tts|image|omni|transcribe/.test(m),
-    );
-  if (candidates.length === 0) return null;
-  const versionOf = (m: string): number[] =>
-    (m.match(/\d+/g) || [0]).map(Number);
-  candidates.sort((a, b) => {
-    const va = versionOf(a);
-    const vb = versionOf(b);
-    for (let i = 0; i < Math.max(va.length, vb.length); i++) {
-      const d = (vb[i] || 0) - (va[i] || 0);
-      if (d !== 0) return d; // descending: newest first
-    }
-    return 0;
-  });
-  return candidates[0];
-}
+// pickReplacement now lives in aiMentorClient.ts (shared with the on-demand
+// recovery path) and is re-exported here for backwards-compatible imports.
+export { pickReplacement };
 
 async function probeModel(model: string, apiKey: string): Promise<{ ok: boolean; retired: boolean; modelList?: string[] }> {
   try {

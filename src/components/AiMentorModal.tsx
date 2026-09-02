@@ -103,7 +103,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
     setLoading(true);
 
     try {
-      const { text, source } = await callMentor({
+      const { text, source, migrated } = await callMentor({
         action: actionType,
         code: currentCode,
         labTitle,
@@ -111,11 +111,17 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
         terminalOutput,
         userQuestion: userMsg,
       });
+      const migrationNote = migrated
+        ? `\n\n🤖 *Model Health Agent: "${migrated.from}" was retired — recovered on the spot with "${migrated.to}".*`
+        : "";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: source === "user-key" ? text : `${text}\n\n_(served by your local dev backend)_`,
+          text:
+            source === "user-key"
+              ? `${text}${migrationNote}`
+              : `${text}\n\n_(served by your local dev backend)_`,
         },
       ]);
     } catch (err: any) {
