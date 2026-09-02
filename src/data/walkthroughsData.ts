@@ -327,15 +327,16 @@ resource "aws_subnet" "public" {
         title: "Meta-Arguments: for_each, count & lifecycle",
         subtitle: "Special keywords built into Terraform Core for advanced control",
         explanation:
-          "Meta-arguments are special keywords available inside ANY resource block regardless of provider. 'for_each' creates multiple resource instances from a map/set; 'depends_on' enforces explicit ordering; 'lifecycle' customizes replacement behavior.",
+          "Meta-arguments are special keywords available inside ANY resource block regardless of provider. 'for_each' creates multiple resource instances from a map/set; 'depends_on' enforces explicit ordering; 'lifecycle' customizes replacement behavior.\n\n**Lifecycle safety locks — 'prevent_destroy':** Despite its name, this setting DESTROYS NOTHING. It is a safety LOCK: 'prevent_destroy = true' means Terraform REFUSES to destroy that resource — if any plan contains a destroy action for it (a 'terraform destroy', or a change that would force replacement), Terraform errors out BEFORE touching the cloud. 'false' (or omitted) simply means 'no lock — destruction allowed as usual'. Think of a door lock: true = locked door; false = unlocked.\n\nTwo honest limits: (1) the lock only guards Terraform's OWN actions — a colleague deleting the database in the AWS Console bypasses it entirely, because the lock lives in Terraform's config, not in AWS; (2) to legitimately delete a locked resource later, a human must first remove the lock line, then destroy — a deliberate two-step act, which is exactly the friction this setting exists to create.",
         objectives: [
           "Scale resource creation dynamically with 'for_each' vs 'count'",
           "Prevent downtime during updates using 'lifecycle { create_before_destroy = true }'",
-          "Protect critical production databases with 'prevent_destroy = true'"
+          "Protect critical resources with 'prevent_destroy = true' — a safety LOCK that makes Terraform REFUSE to destroy them"
         ],
         keyRules: [
           "Prefer 'for_each' over 'count' for resources that might have items removed from the middle of the list.",
-          "Use 'lifecycle { prevent_destroy = true }' on stateful databases and production storage buckets.",
+          "'prevent_destroy = true' does NOT delete anything — it BLOCKS Terraform from destroying the resource (destroy/replacement plans fail with an error until the lock is removed).",
+          "Use 'lifecycle { prevent_destroy = true }' on stateful databases and production storage buckets — it stops Terraform's hands, not a human deleting via the AWS Console.",
           "Use 'lifecycle { ignore_changes = [tags] }' if an external auto-tagger modifies resources."
         ],
         codeSnippet: `resource "aws_s3_bucket" "departments" {
@@ -344,7 +345,7 @@ resource "aws_subnet" "public" {
   bucket   = "corp-\${each.key}-archive"
 
   lifecycle {
-    prevent_destroy = false
+    prevent_destroy = true
     ignore_changes  = [tags["LastScanned"]]
   }
 }`,
@@ -354,7 +355,19 @@ resource "aws_subnet" "public" {
           { label: "each.key", text: "The current iteration value from the provided collection" }
         ],
         diagramType: "resource_stack",
-        commandToTest: "terraform plan"
+        commandToTest: "terraform plan",
+        quickCheck: {
+          question: "You add 'prevent_destroy = true' to a production database's lifecycle block. What happens if someone runs 'terraform destroy'?",
+          options: [
+            "The database is destroyed, then immediately recreated",
+            "Terraform refuses the destroy and errors out before touching the cloud",
+            "Terraform deletes it only if you also pass '-force'",
+            "The setting only affects imports, not destroys"
+          ],
+          correctIndex: 1,
+          explanation:
+            "'prevent_destroy = true' is a safety LOCK: any plan containing a destroy action for that resource fails with an error BEFORE any cloud call. To delete it later, a human must first remove the lock line — a deliberate two-step act. The lock guards Terraform's own actions only; AWS Console deletions bypass it."
+        }
       },
       {
         id: "resources-4",
