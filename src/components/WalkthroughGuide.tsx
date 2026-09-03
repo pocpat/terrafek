@@ -41,6 +41,8 @@ interface WalkthroughGuideProps {
   onToggleWorkspaceViewMode?: (mode: "study" | "split") => void;
   onStartLab?: (labIndex: number) => void;
   onCompleteWalkthrough?: (walkthroughId: string) => void;
+  /** Sequence-aware "next" from App (follows CURRICULUM_ORDER). Falls back to raw array order when absent. */
+  onGoToNextLesson?: () => void;
 }
 
 // Maps each walkthrough to the lab that practices the same subject.
@@ -64,6 +66,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
   onToggleWorkspaceViewMode,
   onStartLab,
   onCompleteWalkthrough,
+  onGoToNextLesson,
 }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
@@ -101,6 +104,9 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
       setCurrentStepIndex((prev) => prev + 1);
       setSelectedQuizOption(null);
       setIsQuizSubmitted(false);
+    } else if (onGoToNextLesson) {
+      // Sequence-aware: App follows CURRICULUM_ORDER (walkthrough → lab → next walkthrough…)
+      onGoToNextLesson();
     } else if (currentWalkthroughIndex < WALKTHROUGHS_DATA.length - 1) {
       handleSelectWalkthrough(currentWalkthroughIndex + 1);
     }
@@ -509,7 +515,7 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
           onClick={handleNextStep}
           className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition-colors flex items-center space-x-1 shadow-xs cursor-pointer"
         >
-          <span>{currentStepIndex < steps.length - 1 ? "Next Step" : "Next Topic"}</span>
+          <span>{currentStepIndex < steps.length - 1 ? "Next Step" : onGoToNextLesson ? "Next Lesson →" : "Next Topic"}</span>
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>

@@ -18,7 +18,9 @@ import {
   Compass
 } from "lucide-react";
 import { LABS_DATA } from "./data/labsData";
+import { WALKTHROUGHS_DATA } from "./data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "./data/remediationDrillsData";
+import { CURRICULUM_ORDER } from "./data/curriculumSequence";
 import { Header } from "./components/Header";
 import { LabGuide } from "./components/LabGuide";
 import { WalkthroughGuide } from "./components/WalkthroughGuide";
@@ -177,6 +179,37 @@ export default function App() {
     setWorkspaceViewMode("study");
   };
 
+  // ── SEQUENCE-AWARE NEXT (follows CURRICULUM_ORDER — the single source of truth) ──
+  // "Next" from a lesson's last step jumps to the NEXT lesson in canonical order
+  // (walkthrough → lab → next walkthrough…), not the raw data-array order.
+  // Skipping stays possible via the Dashboard; order is enforced only for Next.
+  const findCurriculumPosition = (type: "walkthrough" | "lab", index: number): number =>
+    CURRICULUM_ORDER.findIndex((c) => c.type === type && c.index === index);
+
+  const goToNextCurriculumLesson = (current: { type: "walkthrough" | "lab"; index: number }) => {
+    const pos = findCurriculumPosition(current.type, current.index);
+    const next = CURRICULUM_ORDER[pos + 1];
+    if (!next) return; // end of curriculum — stay put
+    if (next.type === "walkthrough") {
+      setCurrentWalkthroughIndex(next.index);
+      setActiveMode("walkthrough");
+    } else {
+      setCurrentLabIndex(next.index);
+      setActiveMode("lab");
+    }
+    setWorkspaceViewMode("study");
+  };
+
+  // Label for the last-step "Next" button — shows what's coming per the sequence
+  const nextLabelFor = (current: { type: "walkthrough" | "lab"; index: number }): string => {
+    const pos = findCurriculumPosition(current.type, current.index);
+    const next = CURRICULUM_ORDER[pos + 1];
+    if (!next) return "Finish Course 🎉";
+    return next.type === "lab"
+      ? `Next: Lab ${next.index + 1}`
+      : `Next: ${WALKTHROUGHS_DATA[next.index].title}`;
+  };
+
   const handleStartDrillFromDashboard = (drill: typeof currentDrill) => {
     // Personal micro-labs live outside the static array — route via the hook
     if (drill.id.startsWith("micro-")) {
@@ -283,6 +316,7 @@ export default function App() {
                 workspaceViewMode={workspaceViewMode}
                 onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
                 onStartLab={handleStartLabFromDashboard}
+                onGoToNextLesson={() => goToNextCurriculumLesson({ type: "walkthrough", index: currentWalkthroughIndex })}
                 onCompleteWalkthrough={(id) => {
                   if (!completedWalkthroughIds.includes(id)) {
                     setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
@@ -298,7 +332,7 @@ export default function App() {
                 codeMap={files}
                 state={tfState}
                 parsedResources={parsedData.resources}
-                onNextLab={() => setCurrentLabIndex((i) => Math.min(LABS_DATA.length - 1, i + 1))}
+                onNextLab={() => goToNextCurriculumLesson({ type: "lab", index: currentLabIndex })}
                 onPrevLab={() => setCurrentLabIndex((i) => Math.max(0, i - 1))}
                 hasPrev={currentLabIndex > 0}
                 hasNext={currentLabIndex < LABS_DATA.length - 1}
@@ -387,6 +421,7 @@ export default function App() {
                       workspaceViewMode={workspaceViewMode}
                       onToggleWorkspaceViewMode={(mode) => setWorkspaceViewMode(mode)}
                       onStartLab={handleStartLabFromDashboard}
+                      onGoToNextLesson={() => goToNextCurriculumLesson({ type: "walkthrough", index: currentWalkthroughIndex })}
                       onCompleteWalkthrough={(id) => {
                         if (!completedWalkthroughIds.includes(id)) {
                           setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
@@ -404,7 +439,7 @@ export default function App() {
                       codeMap={files}
                       state={tfState}
                       parsedResources={parsedData.resources}
-                      onNextLab={() => setCurrentLabIndex((i) => Math.min(LABS_DATA.length - 1, i + 1))}
+                      onNextLab={() => goToNextCurriculumLesson({ type: "lab", index: currentLabIndex })}
                       onPrevLab={() => setCurrentLabIndex((i) => Math.max(0, i - 1))}
                       hasPrev={currentLabIndex > 0}
                       hasNext={currentLabIndex < LABS_DATA.length - 1}
