@@ -303,18 +303,21 @@ export function calculateCourseProgress(
   } else {
     // Use the single source-of-truth curriculum sequence to find the
     // first item the user has NOT yet completed.
+    // NOTE: a walkthrough counts as completed ONLY via its explicit completion
+    // flag (completedWalkthroughIds, set when the learner finishes the last
+    // step). The old `walkthroughProgressIndex >= item.index` heuristic marked
+    // every walkthrough up to "wherever the reader stopped" as done — which
+    // made recommendations skip unfinished lessons (bug: after Lab 2, users
+    // were pushed to Lab 5). The reading-position index is progress DISPLAY,
+    // never completion.
     const nextItem = CURRICULUM_ORDER.find((item) => {
       if (item.type === "lab") {
         const lab = LABS_DATA[item.index];
         return lab && !completedLabIds.includes(lab.id);
       } else {
-        // Walkthrough is "completed" if it's in completedWalkthroughIds (new tracking)
-        // OR if the user has moved past it (currentWalkthroughIndex > item.index, old tracking)
         const wt = WALKTHROUGHS_DATA[item.index];
         if (!wt) return true;
-        const markedCompleted = completedWalkthroughIds.includes(wt.id);
-        const passedByIndex = walkthroughProgressIndex >= item.index;
-        return !markedCompleted && !passedByIndex;
+        return !completedWalkthroughIds.includes(wt.id);
       }
     });
 

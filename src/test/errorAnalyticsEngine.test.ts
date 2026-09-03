@@ -135,9 +135,19 @@ describe('errorAnalyticsEngine', () => {
       expect(summary.nextRecommendedLesson.title).toContain('Skill Gap Drill');
     });
 
-    it('recommends next uncompleted lab when no unresolved errors', () => {
-      // Learner has completed lab-1 and progressed past every walkthrough (index 6 = last).
-      const summary = calculateCourseProgress(['lab-1-first-resource'], [], [], 6, 200, []);
+    it('recommends next uncompleted lesson when no unresolved errors', () => {
+      // Learner completed lab-1 AND formally completed the walkthroughs that
+      // precede lab idx 1 in CURRICULUM_ORDER (wt0, wt1, wt2).
+      // Reading position (6) alone must NOT complete walkthroughs — the
+      // completion FLAG decides.
+      const summary = calculateCourseProgress(
+        ['lab-1-first-resource'],
+        ['concept-providers', 'concept-resources', 'concept-variables'],
+        [],
+        6,
+        200,
+        []
+      );
       expect(summary.nextRecommendedLesson.type).toBe('lab');
     });
 
@@ -149,8 +159,12 @@ describe('errorAnalyticsEngine', () => {
         'lab-7-count-and-for-each', 'lab-8-modular-architecture', 'lab-9-remote-state-locking',
         'lab-10-production-hero',
       ];
-      // Progressed past every walkthrough (index 6 = last), so the refresher branch fires.
-      const summary = calculateCourseProgress(allLabIds, [], [], 6, 2000, []);
+      // All walkthroughs formally completed too, so the refresher branch fires.
+      const allWalkthroughIds = [
+        'concept-providers', 'concept-resources', 'concept-variables', 'concept-state',
+        'concept-workflow', 'concept-modules', 'concept-dag',
+      ];
+      const summary = calculateCourseProgress(allLabIds, allWalkthroughIds, [], 6, 2000, []);
       expect(summary.nextRecommendedLesson.type).toBe('walkthrough');
     });
   });
