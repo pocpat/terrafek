@@ -26,6 +26,7 @@ import {
   FileText
 } from "lucide-react";
 import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
+import ReactMarkdown from "react-markdown";
 import { VisualWalkthrough, WalkthroughStep } from "../types/terraform";
 import { WalkthroughDiagrams } from "./WalkthroughDiagrams";
 import { InteractiveCodeSnippet } from "./InteractiveCodeSnippet";
@@ -289,10 +290,10 @@ export const WalkthroughGuide: React.FC<WalkthroughGuideProps> = ({
             {currentStep.title}
           </h3>
 
-          {/* Core Learning Concept Text */}
-          <p className="text-[12px] font-sans font-medium text-slate-800 leading-relaxed">
-            {currentStep.explanation}
-          </p>
+          {/* Core Learning Concept Text — markdown so lessons can use bold, bullets, structure */}
+          <div className="text-[12px] font-sans font-medium text-slate-800 leading-relaxed walkthrough-explanation [&_p]:my-1.5 [&_ul]:my-2 [&_ul]:space-y-1 [&_ol]:my-2 [&_ol]:space-y-1 [&_li]:ml-4 [&_li]:list-disc [&_ol>li]:list-decimal [&_strong]:font-bold [&_strong]:text-slate-900">
+            <ReactMarkdown>{currentStep.explanation}</ReactMarkdown>
+          </div>
         </div>
 
         {/* LEARNING SECTION 2: Learning Objectives */}
