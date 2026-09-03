@@ -97,11 +97,11 @@ resource "aws_s3_bucket" "dr_replica" {
           question: "When does Terraform download the required provider plugins?",
           options: [
             "Automatically during 'terraform apply'",
-            "During 'terraform init'",
             "When 'terraform fmt' is executed",
+            "During 'terraform init'",
             "Plugins are already embedded inside the Terraform binary"
           ],
-          correctIndex: 1,
+          correctIndex: 2,
           explanation:
             "'terraform init' reads the required_providers block, queries the Terraform Registry, and downloads the appropriate platform-specific binaries into .terraform/."
         }
@@ -144,12 +144,12 @@ resource "aws_s3_bucket" "dr_replica" {
         quickCheck: {
           question: "What is the best practice for authenticating the AWS provider?",
           options: [
-            "Hardcode access_key and secret_key in provider 'aws' block",
             "Use Environment Variables, AWS CLI profiles, or IAM Role / OIDC",
+            "Hardcode access_key and secret_key in provider 'aws' block",
             "Store plaintext credentials in terraform.tfvars committed to git",
             "Pass plaintext credentials as CLI arguments on every command"
           ],
-          correctIndex: 1,
+          correctIndex: 0,
           explanation:
             "Hardcoded credentials in code risk exposure in version control. Always leverage IAM roles, OIDC, AWS profiles, or injected environment variables."
         }
@@ -279,11 +279,11 @@ resource            "aws_s3_bucket"       "app_storage" {
           question: "Given 'resource \"aws_vpc\" \"main\" {}', how do other resources reference its ID?",
           options: [
             "aws_vpc.id",
-            "aws_vpc.main.id",
             "main.vpc.id",
-            "$aws_vpc.main.id"
+            "$aws_vpc.main.id",
+            "aws_vpc.main.id"
           ],
-          correctIndex: 1,
+          correctIndex: 3,
           explanation:
             "References follow the pattern <resource_type>.<local_name>.<attribute_name>, hence 'aws_vpc.main.id'."
         }
@@ -360,11 +360,11 @@ resource "aws_subnet" "public" {
           question: "You add 'prevent_destroy = true' to a production database's lifecycle block. What happens if someone runs 'terraform destroy'?",
           options: [
             "The database is destroyed, then immediately recreated",
-            "Terraform refuses the destroy and errors out before touching the cloud",
+            "The setting only affects imports, not destroys",
             "Terraform deletes it only if you also pass '-force'",
-            "The setting only affects imports, not destroys"
+            "Terraform refuses the destroy and errors out before touching the cloud"
           ],
-          correctIndex: 1,
+          correctIndex: 3,
           explanation:
             "'prevent_destroy = true' is a safety LOCK: any plan containing a destroy action for that resource fails with an error BEFORE any cloud call. To delete it later, a human must first remove the lock line — a deliberate two-step act. The lock guards Terraform's own actions only; AWS Console deletions bypass it."
         }
@@ -443,12 +443,12 @@ resource "aws_instance" "web" {
         quickCheck: {
           question: "What does cidr_blocks = [\"0.0.0.0/0\"] mean in a security group ingress block?",
           options: [
-            "Allow traffic only from inside the VPC",
             "Allow traffic from any IP address",
+            "Allow traffic only from inside the VPC",
             "Allow traffic from localhost only",
             "Block all inbound traffic"
           ],
-          correctIndex: 1,
+          correctIndex: 0,
           explanation:
             "\"0.0.0.0/0\" is the CIDR block covering all IPv4 addresses, so the rule permits inbound traffic from anywhere on the internet."
         }
@@ -559,11 +559,11 @@ output "environment_name" {
           question: "How do you reference the value of a variable named 'environment' in HCL?",
           options: [
             "$environment",
-            "var.environment",
+            "self.environment",
             "variables.environment",
-            "self.environment"
+            "var.environment"
           ],
-          correctIndex: 1,
+          correctIndex: 3,
           explanation:
             "Input variables are always accessed under the 'var.' namespace, e.g. var.environment."
         }
@@ -718,12 +718,12 @@ output "db_password" {
         quickCheck: {
           question: "Why should terraform.tfstate NEVER be committed to a public Git repository?",
           options: [
-            "Git cannot store JSON files",
             "State files contain unencrypted sensitive data and credentials",
+            "Git cannot store JSON files",
             "It will cause Terraform to crash on init",
             "Terraform only allows storing state on local floppy disks"
           ],
-          correctIndex: 1,
+          correctIndex: 0,
           explanation:
             "State files contain full attributes of all resources in plaintext, including generated passwords, API keys, and private tokens. Always use encrypted remote backends."
         }
@@ -1017,11 +1017,11 @@ resource "aws_instance" "web" {
           question: "How do you access an output named 'vpc_id' exported from a module called 'network'?",
           options: [
             "aws_vpc.network.vpc_id",
-            "module.network.vpc_id",
             "network.outputs.vpc_id",
+            "module.network.vpc_id",
             "var.network.vpc_id"
           ],
-          correctIndex: 1,
+          correctIndex: 2,
           explanation:
             "Module outputs are accessed via 'module.<module_name>.<output_name>', e.g. module.network.vpc_id."
         }
@@ -1132,8 +1132,8 @@ digraph {
           options: [
             "Applies them alphabetically one after another",
             "Provisions both in parallel simultaneously",
-            "Throws an unresolved dependency error",
-            "Halts until you add an explicit depends_on block"
+            "Halts until you add an explicit depends_on block",
+            "Throws an unresolved dependency error"
           ],
           correctIndex: 1,
           explanation:

@@ -53,11 +53,11 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     question: "What happens when an engineer modifies an EC2 security group manually in the AWS Console, and you then run `terraform apply`?",
     options: [
       "Terraform crashes with a corruption error",
-      "Terraform detects the drift and updates the cloud resource back to match the declared HCL code",
       "Terraform automatically rewrites your local .tf file to match the console change",
-      "Terraform ignores the cloud change completely"
+      "Terraform ignores the cloud change completely",
+      "Terraform detects the drift and updates the cloud resource back to match the declared HCL code"
     ],
-    correctIndex: 1,
+    correctIndex: 3,
     explanation:
       "Terraform is declarative: your code is the source of truth. Running `apply` will reconcile the drifted cloud infrastructure back to what is declared in code."
   },
@@ -66,12 +66,12 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     category: "Scaling",
     question: "Why is `for_each` generally preferred over `count` when managing sets of independent resources?",
     options: [
-      "`for_each` runs 10x faster than `count`",
       "Removing an item from the middle of a `count` list causes re-indexing and accidental destruction/recreation of subsequent resources",
+      "`for_each` runs 10x faster than `count`",
       "`count` cannot create more than 5 resources",
       "`for_each` doesn't require a state file"
     ],
-    correctIndex: 1,
+    correctIndex: 0,
     explanation:
       "`count` indexes resources by integer ([0], [1], [2]). If index [1] is removed, index [2] becomes [1], causing Terraform to modify/destroy it. `for_each` uses stable string keys."
   },
@@ -81,11 +81,11 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     question: "What does setting `sensitive = true` on an output block achieve?",
     options: [
       "It encrypts the entire .tfstate file with AES-256",
-      "It prevents the output value from being displayed in plaintext in CLI logs and console output",
       "It requires a password to run terraform destroy",
+      "It prevents the output value from being displayed in plaintext in CLI logs and console output",
       "It locks the cloud provider account"
     ],
-    correctIndex: 1,
+    correctIndex: 2,
     explanation:
       "`sensitive = true` suppresses output values from showing up in plaintext in `terraform plan` and `terraform apply` CLI logs."
   }
