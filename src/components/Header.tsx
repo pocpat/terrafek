@@ -14,6 +14,7 @@ import {
   Columns
 } from "lucide-react";
 import { LABS_DATA } from "../data/labsData";
+import { formatLabTitle } from "../utils/labNumbering";
 import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
 import terrafekLogo from "../assets/images/terrafek_vibrant_icon_1787272277132.jpg";
 import type { AppMode, ActiveTabMode } from "../hooks/useNavigation";
@@ -175,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
                     const isDone = completedLabIds.includes(lab.id);
                     return (
                       <option key={lab.id} value={index}>
-                        {isDone ? "✓ " : `${index + 1}. `} {lab.title}
+                        {isDone ? "✓ " : ""}{formatLabTitle(LABS_DATA, lab.id)}
                       </option>
                     );
                   })}

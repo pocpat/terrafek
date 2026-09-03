@@ -24,6 +24,8 @@ import {
 import { LabDefinition, TerraformStateFile, ParsedResource } from "../types/terraform";
 import { ConfettiOverlay } from "./ConfettiOverlay";
 import { diagnoseTask, fallbackDiagnosis, HintDiagnosis } from "../utils/hintDiagnostics";
+import { formatLabTitle } from "../utils/labNumbering";
+import { LABS_DATA } from "../data/labsData";
 
 interface LabGuideProps {
   lab: LabDefinition;
@@ -235,7 +237,7 @@ export const LabGuide: React.FC<LabGuideProps> = ({
           </div>
         </div>
 
-        <h2 className="font-serif text-base font-bold text-stone-900 tracking-tight leading-snug">{lab.title}</h2>
+        <h2 className="font-serif text-base font-bold text-stone-900 tracking-tight leading-snug">{formatLabTitle(LABS_DATA, lab.id)}</h2>
         <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed italic">{lab.subtitle}</p>
 
         {/* View Mode Context Prompt */}

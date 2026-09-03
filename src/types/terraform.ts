@@ -78,6 +78,8 @@ export interface LabDefinition {
   id: string;
   level: number; // 0 to 7
   title: string;
+  /** Lesson group key: labs sharing this get numbered N.1, N.2… (single-lab lessons get plain N) */
+  lesson?: string;
   subtitle: string;
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Hero";
   estimatedMinutes: number;

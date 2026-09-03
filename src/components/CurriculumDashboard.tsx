@@ -36,6 +36,7 @@ import {
   RemediationDrill
 } from "../types/terraform";
 import { SKILL_DOMAINS_INFO } from "../utils/errorAnalyticsEngine";
+import { formatLabTitle } from "../utils/labNumbering";
 import terrafekLogo from "../assets/images/terrafek_vibrant_icon_1787272277132.jpg";
 
 interface CurriculumDashboardProps {
@@ -407,7 +408,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
                           <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
-                            {lab.title}
+                            {formatLabTitle(LABS_DATA, lab.id)}
                           </h4>
                           <p className="text-xs text-stone-600 font-sans line-clamp-2">
                             {lab.subtitle}
@@ -528,7 +529,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
                           <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
-                            {lab.title}
+                            {formatLabTitle(LABS_DATA, lab.id)}
                           </h4>
                           <p className="text-xs text-stone-600 font-sans line-clamp-2">
                             {lab.subtitle}
@@ -632,7 +633,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
                           <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
-                            {lab.title}
+                            {formatLabTitle(LABS_DATA, lab.id)}
                           </h4>
                           <p className="text-xs text-stone-600 font-sans line-clamp-2">
                             {lab.subtitle}

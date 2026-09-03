@@ -93,6 +93,7 @@ resource "aws_s3_bucket" "analytics_bucket" {
   },
   {
     id: "lab-2-core-workflow",
+    lesson: "Variables & State",
     level: 1,
     title: "2. The Core Terraform Workflow",
     subtitle: "Master the 4 golden commands: init -> plan -> apply -> destroy",
@@ -217,6 +218,7 @@ resource "aws_instance" "web_server" {
   },
   {
     id: "lab-3-variables-locals",
+    lesson: "Variables & State",
     level: 2,
     title: "3. Input Variables & Locals",
     subtitle: "Parameterize code with variables.tf, defaults, validation & local values",
@@ -348,6 +350,7 @@ variable "environment" {
   },
   {
     id: "lab-4-networking-dependencies",
+    lesson: "Variables & State",
     level: 3,
     title: "4. Cloud Networking & Resource Graphs",
     subtitle: "Build a VPC, Subnet, and Security Group with implicit dependency wiring",
@@ -531,6 +534,7 @@ resource "aws_instance" "web" {
   },
   {
     id: "lab-5-outputs-sensitive",
+    lesson: "Variables & State",
     level: 4,
     title: "5. Outputs & Sensitive Data Handling",
     subtitle: "Export provisioned attributes and shield secrets with sensitive = true",
@@ -722,6 +726,7 @@ resource "aws_instance" "app" {
   },
   {
     id: "lab-7-count-and-for-each",
+    lesson: "Modules & Scale",
     level: 5,
     title: "7. Scaling with Count & For_Each",
     subtitle: "Scale infrastructure dynamically using lists, maps, and iteration meta-arguments",
@@ -815,6 +820,7 @@ resource "aws_instance" "service" {
   },
   {
     id: "lab-8-modular-architecture",
+    lesson: "Modules & Scale",
     level: 6,
     title: "8. Terraform Modules & Reusability",
     subtitle: "Package complex VPC & Compute setups into reusable child modules",
