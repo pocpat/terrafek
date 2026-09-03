@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { LabDefinition, TerraformStateFile, ParsedResource } from "../types/terraform";
 import { ConfettiOverlay } from "./ConfettiOverlay";
+import { diagnoseTask, fallbackDiagnosis, HintDiagnosis } from "../utils/hintDiagnostics";
 
 interface LabGuideProps {
   lab: LabDefinition;
@@ -342,6 +343,34 @@ export const LabGuide: React.FC<LabGuideProps> = ({
                   {/* Hint Reveal Box */}
                   {isHintOpen && (
                     <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs bg-amber-50/80 p-2.5 rounded-xl border border-amber-200">
+                      {/* INTERACTIVE DIAGNOSTICS: what's actually wrong with THIS learner's code */}
+                      {!isDone && (() => {
+                        const dx = diagnoseTask({ files: codeMap, labId: lab.id });
+                        const shown: HintDiagnosis[] = dx.length ? dx : [fallbackDiagnosis(task.hint)];
+                        return (
+                          <div className="mb-2.5 space-y-1.5">
+                            <div className="flex items-center space-x-1 text-[11px] font-bold text-slate-800">
+                              <span>🔍 Why it's still grey</span>
+                            </div>
+                            {shown.map((d, i) => (
+                              <div
+                                key={i}
+                                className={`p-2 rounded-lg border text-[11px] leading-relaxed ${
+                                  d.severity === "error"
+                                    ? "bg-rose-50 border-rose-200 text-rose-900"
+                                    : "bg-white border-amber-200 text-slate-800"
+                                }`}
+                              >
+                                <span className="mr-1">{d.severity === "error" ? "⛔" : "💡"}</span>
+                                {d.message}
+                                <span className="block mt-1 font-mono text-[10.5px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 whitespace-pre-wrap">
+                                  → {d.fix}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       <div className="flex items-center justify-between text-amber-950 font-bold mb-1">
                         <span className="flex items-center space-x-1">
                           <Lightbulb className="w-3.5 h-3.5 text-amber-700" />
