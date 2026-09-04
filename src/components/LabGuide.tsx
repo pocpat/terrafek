@@ -211,25 +211,6 @@ export const LabGuide: React.FC<LabGuideProps> = ({
                 <span>{showWorkspaceNotes ? "Hide Step Guide" : "How to use Lab"}</span>
               </button>
             )}
-            {workspaceViewMode === "study" ? (
-              <button
-                onClick={() => onToggleWorkspaceViewMode?.("split")}
-                className="flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold transition-all cursor-pointer"
-                title="Open Code Editor and Visualizer to build this lab"
-              >
-                <Terminal className="w-3 h-3" />
-                <span>Start Lab in Editor</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => onToggleWorkspaceViewMode?.("study")}
-                className="flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-semibold border border-stone-200 transition-all cursor-pointer"
-                title="Close Code Editor & Visualizer to focus purely on reading"
-              >
-                <BookOpen className="w-3 h-3 text-indigo-600" />
-                <span>Focus Reading View</span>
-              </button>
-            )}
             <div className="flex items-center justify-center space-x-1 text-amber-700 text-[11px] font-mono font-semibold py-0.5">
               <Award className="w-3 h-3" />
               <span>+{lab.xp} XP</span>
@@ -249,9 +230,11 @@ export const LabGuide: React.FC<LabGuideProps> = ({
               </span>
               <button
                 onClick={() => onToggleWorkspaceViewMode?.("split")}
-                className="text-[11.5px] font-bold text-indigo-700 hover:text-indigo-900 underline underline-offset-2 shrink-0 ml-2 cursor-pointer"
+                className="flex items-center justify-center space-x-1.5 px-2.5 py-1 rounded-md bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold transition-all cursor-pointer shrink-0 ml-2"
+                title="Open Code Editor and Visualizer to build this lab"
               >
-                Open Code Editor →
+                <Terminal className="w-3 h-3" />
+                <span>Start Lab in Editor</span>
               </button>
             </>
           ) : (
