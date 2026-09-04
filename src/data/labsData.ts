@@ -302,13 +302,13 @@ resource "aws_instance" "web_server" {
       }
     ],
     starterFiles: {
-      "main.tf": `# Lab 3: Input Variables & Locals
+      "main.tf": `# Lab 2.2: Input Variables & Locals
 # TODO Task 1: Configure the AWS provider (region eu-west-1)
 # TODO Task 4: Add a locals block computing the server name
 # TODO Task 5 & 6: Declare the aws_instance "app" resource
 
 `,
-      "variables.tf": `# Lab 3: Input Variables
+      "variables.tf": `# Lab 2.2: Input Variables
 # TODO Task 2: Declare the instance type variable (default t3.micro)
 # TODO Task 3: Declare the environment variable (default staging)
 
@@ -449,7 +449,7 @@ variable "environment" {
       }
     ],
     starterFiles: {
-      "main.tf": `# Lab 4: Cloud Networking & Resource Graphs
+      "main.tf": `# Lab 2.3: Cloud Networking & Resource Graphs
 # Build a VPC, Subnet, Security Group, and EC2 instance from scratch.
 
 # Task 1: Add the AWS provider block (region = "us-east-1")
@@ -783,7 +783,7 @@ resource "aws_instance" "app" {
 #   that iterates over var.services dynamically and uses each entry's
 #   value as the instance type. Name tag should include the entry key.
 `,
-      "variables.tf": `# Lab 7: Scaling with Count & For_Each
+      "variables.tf": `# Lab 4.1: Scaling with Count & For_Each
 # TODO Task 1: Declare the "services" variable as a map of instance types
 #   with one entry per tier (three tiers total — see your instruction list).
 `
@@ -1147,7 +1147,7 @@ resource "aws_s3_bucket" "app_data" {
       }
     ],
     starterFiles: {
-      "main.tf": `# Lab 10: HERO — Multi-Tier HA Production Architecture
+      "main.tf": `# Lab 6: HERO — Multi-Tier HA Production Architecture
 # Build every tier from scratch. Order of battle:
 #
 # TODO Task 1: Enterprise VPC "prod" (CIDR 10.0.0.0/16, DNS hostnames enabled)
