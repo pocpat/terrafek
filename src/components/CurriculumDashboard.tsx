@@ -125,6 +125,9 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   // This ensures the Dashboard phase cards always match the recommendation logic.
   const buildPhaseItems = (phaseNum: 1 | 2 | 3) =>
     CURRICULUM_ORDER.filter((item) => item.phase === phaseNum).map((item) => {
+      // Global order number (1..17 across the whole curriculum) — shown as a
+      // pill on each card so the reading order is obvious in a 2-column grid.
+      const orderNo = CURRICULUM_ORDER.findIndex((c) => c === item) + 1;
       if (item.type === "walkthrough") {
         const wt = WALKTHROUGHS_DATA[item.index];
         return {
@@ -134,12 +137,14 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
           subtitle: wt.subtitle,
           mins: item.estimatedMinutes,
           category: item.category,
+          orderNo,
         };
       } else {
         return {
           type: "lab" as const,
           index: item.index,
           lab: LABS_DATA[item.index],
+          orderNo,
         };
       }
     });
@@ -352,8 +357,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
-                              Visual Walkthrough
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
+                                Visual Walkthrough
+                              </span>
                             </span>
                             <div className="flex items-center space-x-1 text-[11px] text-stone-500 font-mono">
                               <Clock className="w-3 h-3" />
@@ -402,8 +412,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
-                              Hands-On Lab
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
+                                Hands-On Lab
+                              </span>
                             </span>
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
@@ -474,8 +489,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
-                              Visual Walkthrough
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
+                                Visual Walkthrough
+                              </span>
                             </span>
                             <div className="flex items-center space-x-1 text-[11px] text-stone-500 font-mono">
                               <Clock className="w-3 h-3" />
@@ -523,8 +543,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
-                              Hands-On Lab
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
+                                Hands-On Lab
+                              </span>
                             </span>
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
@@ -584,9 +609,14 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         }`}
                       >
                         <div className="space-y-1.5">
-                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
-                            Visual Walkthrough
-                          </span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              #{item.orderNo}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
+                              Visual Walkthrough
+                            </span>
+                          </div>
                           <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
                             {item.title}
                           </h4>
@@ -627,8 +657,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
-                              Hands-On Lab
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
+                                Hands-On Lab
+                              </span>
                             </span>
                             <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
                           </div>
