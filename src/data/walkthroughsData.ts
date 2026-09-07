@@ -655,6 +655,7 @@ output "db_password" {
       "Terraform state is the single source of truth that maps your declarative HCL code to real-world cloud resources, tracks metadata, and detects out-of-band changes (Configuration Drift).",
     mainObjectives: [
       "Understand what is stored inside terraform.tfstate and why state is mandatory",
+      "Map the four files: main.tf (what), variables.tf (knobs), tfvars (values), terraform.tfstate (memory)",
       "Master the 3-Way Reconciliation Triangle: Desired State vs State File vs Actual Cloud",
       "Learn how remote backends (S3 + DynamoDB) provide team collaboration and state locking",
       "Detect and remediate out-of-band Configuration Drift"
@@ -729,8 +730,64 @@ output "db_password" {
         }
       },
       {
-        id: "state-2",
+        id: "state-files-map",
         stepNumber: 2,
+        title: "Which File Gets What?",
+        subtitle: "main.tf, variables.tf, terraform.tfstate and secrets — who holds what",
+        explanation:
+          "THE SHORT MAP — four files, four jobs, zero duplication:\n\n1) main.tf — WHAT you want to build. The resources and their settings (buckets, instances, networks). This is your wish list.\n\n2) variables.tf — the KNOBS of your wish list. Values you want to change per environment (dev/staging/prod): instance sizes, region, environment names. main.tf REFERENCES them (var.instance_type); it never hardcodes them.\n\n3) terraform.tfstate — Terraform's MEMORY of what it already built. You never write this file and never read it by hand. After 'apply', Terraform records: which real cloud resource (its AWS ID like i-0a1b2c3d) matches which line of your code, plus values the cloud generated that you never typed (public IPs, ARNs, passwords).\n\nWHY NOT 'THE SAME THINGS TWICE'? You write WHAT you want (code). State remembers WHAT EXISTS (reality) — including facts only the cloud knows, like the ID AWS assigned. Plan compares wish vs memory vs reality; without state, Terraform would have to interrogate every resource in your whole AWS account on every run.\n\n4) Secrets — written in variables.tf (like any input), but kept OUT of code via a .tfvars file that is Git-ignored, or better: environment variables / a vault. sensitive = true hides them in terminal logs — but they STILL land in terraform.tfstate in plaintext, which is why the state file must live in an encrypted remote backend and never in Git.",
+        objectives: [
+          "Map each file to its single job: wish list (main.tf), knobs (variables.tf), memory (terraform.tfstate)",
+          "Explain why state is NOT a duplicate of your code — it stores cloud-assigned facts your code never contains",
+          "Know where secrets belong and why the state file is their weakest link"
+        ],
+        keyRules: [
+          "You write: main.tf + variables.tf (the wish). You never write: terraform.tfstate (the memory).",
+          "State stores cloud-assigned facts (IDs, IPs, ARNs) that exist nowhere in your code — that's why it exists.",
+          "Secrets go in variables (Git-ignored .tfvars or env vars); sensitive = true hides CLI output but NOT the state file — encrypt the backend.",
+          "Never commit terraform.tfstate or *.tfvars with secrets to Git."
+        ],
+        codeSnippet: `# ── WHAT YOU WRITE ──────────────────────────────
+# main.tf          WHAT to build (resources)
+# variables.tf     The KNOBS (inputs, per-environment)
+# terraform.tfvars Git-ignored VALUES for the knobs
+#                  (this is where secret values live)
+
+# ── WHAT TERRAFORM WRITES FOR YOU ───────────────
+# terraform.tfstate  The MEMORY: maps each code
+#                    address to the real cloud ID
+#                    + cloud-computed facts (IPs, ARNs,
+#                    generated passwords — plaintext!)
+
+# ── WHY NOT DUPLICATED? ─────────────────────────
+# main.tf says:     "I want an instance named app"
+# tfstate remembers: "that instance IS i-0a1b2c3d
+#                     with IP 54.210.12.89"
+# The cloud invented i-0a1b2c3d — your code
+# could never know it. No duplication: different jobs.`,
+        fileName: "file-roles.map",
+        codeHighlights: [
+          { label: "terraform.tfstate", text: "Terraform's memory — written by apply, never by you" },
+          { label: "The cloud invented i-0a1b2c3d", text: "Facts only the state file can know — the reason state must exist" }
+        ],
+        diagramType: "best_practice_matrix",
+        commandToTest: "terraform state list",
+        quickCheck: {
+          question: "Your code already describes the bucket. Why does Terraform ALSO need terraform.tfstate?",
+          options: [
+            "To back up your HCL code in case you delete it",
+            "To remember which real cloud resource (AWS ID) matches each line of code, plus cloud-computed facts your code never contains",
+            "To store a second copy of the same settings for safety",
+            "To convert HCL into JSON before sending it to AWS"
+          ],
+          correctIndex: 1,
+          explanation:
+            "Code = the wish; state = the memory of what was created, including cloud-assigned facts (IDs, IPs, generated passwords) that appear NOWHERE in your code. Plan compares wish vs memory vs real cloud."
+        }
+      },
+      {
+        id: "state-2",
+        stepNumber: 3,
         title: "The 3-Way Reconciliation Triangle",
         subtitle: "How 'terraform plan' calculates actions (+, ~, -)",
         explanation:
@@ -771,7 +828,7 @@ Plan: 0 to add, 1 to change, 0 to destroy.`,
       },
       {
         id: "state-3",
-        stepNumber: 3,
+        stepNumber: 4,
         title: "Remote Backends & State Locking",
         subtitle: "Team collaboration with AWS S3 and DynamoDB",
         explanation:

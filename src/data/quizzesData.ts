@@ -76,6 +76,67 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
       "`count` indexes resources by integer ([0], [1], [2]). If index [1] is removed, index [2] becomes [1], causing Terraform to modify/destroy it. `for_each` uses stable string keys."
   },
   {
+    id: "q7",
+    category: "Files & Secrets",
+    question: "You need the EC2 instance size to be different in staging and production. Which file should hold that value?",
+    scenario: "Your app.tf has instance_type = \"t3.micro\" hardcoded, but staging uses t3.micro and production uses t3.large.",
+    options: [
+      "terraform.tfstate — state stores all configurable values",
+      "variables.tf — declare the input variable; reference it as var.instance_type in main.tf",
+      "main.tf — write two resource blocks, one per environment",
+      "It cannot be done — Terraform values are fixed at creation"
+    ],
+    correctIndex: 1,
+    explanation:
+      "values you want to change per environment belong in variables.tf as input variables; main.tf references them via var.<name>. That way one codebase serves every environment."
+  },
+  {
+    id: "q8",
+    category: "Files & Secrets",
+    question: "What does terraform.tfstate contain that your .tf files do NOT?",
+    options: [
+      "A second copy of your resource arguments, for backup",
+      "Cloud-assigned facts: real resource IDs, public IPs, ARNs, and generated passwords",
+      "The Terraform provider plugin binaries",
+      "Your AWS access keys, encrypted"
+    ],
+    correctIndex: 1,
+    explanation:
+      "State is Terraform's MEMORY: it maps each code address (aws_instance.app) to the real cloud resource (i-0a1b2c3d) and records cloud-computed attributes (IPs, ARNs, generated passwords) that exist nowhere in your code."
+  },
+  {
+    id: "q9",
+    category: "Files & Secrets",
+    question: "You marked an output as sensitive = true. Where can the secret value still be found in plaintext?",
+    codeSnippet: `output \"db_password\" {
+  value     = aws_db_instance.main.password
+  sensitive = true
+}`,
+    options: [
+      "Nowhere — sensitive = true encrypts the value everywhere",
+      "In terraform.tfstate, stored in plaintext",
+      "Only inside the AWS IAM console",
+      "In the .terraform.lock.hcl file"
+    ],
+    correctIndex: 1,
+    explanation:
+      "sensitive = true only redacts CLI output (shows <sensitive>). The value is stored unencrypted in terraform.tfstate — protect it with an encrypted remote backend and never commit state to Git."
+  },
+  {
+    id: "q10",
+    category: "Files & Secrets",
+    question: "Which pair describes the correct division of labor between YOU and Terraform?",
+    options: [
+      "You write main.tf and variables.tf; Terraform writes and updates terraform.tfstate automatically",
+      "You write main.tf, variables.tf, and terraform.tfstate; Terraform only reads them",
+      "Terraform writes main.tf from your plan; you maintain terraform.tfstate by hand",
+      "You write everything once; Terraform copies variables.tf into terraform.tfstate for backup"
+    ],
+    correctIndex: 0,
+    explanation:
+      "You author the wish (main.tf + variables.tf). Terraform alone maintains the memory (terraform.tfstate) — never hand-edit it; cloud-assigned facts live only there, which is why it is not a duplicate of your code."
+  },
+  {
     id: "q6",
     category: "Security",
     question: "What does setting `sensitive = true` on an output block achieve?",
