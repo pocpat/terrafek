@@ -12,6 +12,7 @@ import {
 } from "../utils/terraformEngine";
 import { parseHclCode } from "../utils/hclParser";
 import { formatLabTitle } from "../utils/labNumbering";
+import { safeGetItem, safeSetItem } from "../utils/safeStorage";
 import { LABS_DATA } from "../data/labsData";
 import {
   TerraformStateFile,
@@ -65,6 +66,34 @@ interface UseTerraformSessionParams {
   loggedErrors: LoggedErrorEvent[];
   setLoggedErrors: React.Dispatch<React.SetStateAction<LoggedErrorEvent[]>>;
   logNewError: (message: string, source: LoggedErrorEvent["source"], command?: string) => void;
+}
+
+/**
+ * Per-lab code memory: user code persists per lab id to localStorage
+ * (key "tf_lab_code_<labId>") so returning to a lab restores the learner's
+ * last code instead of the starter files. Returning with saved code that
+ * passes all tasks re-fires the completion effect naturally — re-earning a
+ * completion clobbered by the pre-race-fix bug requires no retyping.
+ */
+function labCodeKey(labId: string): string {
+  return `tf_lab_code_${labId}`;
+}
+
+function loadSavedLabCode(labId: string): Record<string, string> | null {
+  try {
+    const raw = safeGetItem(labCodeKey(labId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && Object.keys(parsed).length > 0
+      ? (parsed as Record<string, string>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLabCode(labId: string, files: Record<string, string>): void {
+  safeSetItem(labCodeKey(labId), JSON.stringify(files));
 }
 
 /**
@@ -134,11 +163,16 @@ export function useTerraformSession(params: UseTerraformSessionParams): Terrafor
     [logNewError],
   );
 
-  // Load starter files when switching lab, walkthrough, or drill
+  // Load starter files when switching lab, walkthrough, or drill.
+  // For labs: if the learner previously typed code in this lab, restore it
+  // instead of the starter — re-entering a lab never wipes their work, and
+  // restored code that passes all tasks re-fires auto-completion naturally.
   useEffect(() => {
     if (activeMode === "lab") {
-      setFiles({ ...currentLab.starterFiles });
-      setActiveFile(Object.keys(currentLab.starterFiles)[0] || "main.tf");
+      const saved = loadSavedLabCode(currentLab.id);
+      const restored = saved !== null ? saved : { ...currentLab.starterFiles };
+      setFiles(restored);
+      setActiveFile(Object.keys(restored)[0] || "main.tf");
       setTfState(currentLab.initialState ? JSON.parse(JSON.stringify(currentLab.initialState)) : createEmptyState());
       setValidationStatus(null);
       addTerminalLog("system", `Loaded Lab: ${formatLabTitle(LABS_DATA, currentLab.id)}. Type 'terraform init' or 'terraform plan' to begin.`);
@@ -156,6 +190,16 @@ export function useTerraformSession(params: UseTerraformSessionParams): Terrafor
       addTerminalLog("system", `Loaded Targeted Skill Drill: ${currentDrill.title}. Fix the syntax/configuration flaw on the left.`);
     }
   }, [currentLabIndex, currentWalkthroughIndex, currentDrillIndex, activeMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Per-lab code memory: whenever the editor is showing a lab, keep the
+  // learner's current code saved under that lab's id so a later revisit
+  // restores it. Saving the starter too keeps saved code always in sync with
+  // what the learner last saw (and lets Reset clear the memory entirely).
+  useEffect(() => {
+    if (activeMode === "lab") {
+      saveLabCode(currentLab.id, files);
+    }
+  }, [activeMode, currentLab.id, files]);
 
   // Check if current lab is completed
   useEffect(() => {

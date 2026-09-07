@@ -62,16 +62,16 @@ export function useGamification(): GamificationState {
   });
 
   useEffect(() => {
-    safeSetItem("tf_completed_labs", JSON.stringify(completedLabIds));
+    safeSetItem("tf_completed_labs", JSON.stringify([...new Set(completedLabIds)]));
     safeSetItem("tf_total_xp", String(totalXp));
   }, [completedLabIds, totalXp]);
 
   useEffect(() => {
-    safeSetItem("tf_completed_walkthroughs", JSON.stringify(completedWalkthroughIds));
+    safeSetItem("tf_completed_walkthroughs", JSON.stringify([...new Set(completedWalkthroughIds)]));
   }, [completedWalkthroughIds]);
 
   useEffect(() => {
-    safeSetItem("tf_completed_drills", JSON.stringify(completedDrillIds));
+    safeSetItem("tf_completed_drills", JSON.stringify([...new Set(completedDrillIds)]));
   }, [completedDrillIds]);
 
   return {
