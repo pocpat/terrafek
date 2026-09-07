@@ -26,6 +26,8 @@ interface TerminalSimulatorProps {
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
   showStepBadge?: boolean;
+  /** Commands the user has actually executed this session (drives the green "done" chip state). */
+  executedCommands?: string[];
 }
 
 const QUICK_COMMANDS = [
@@ -51,6 +53,7 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
   onToggleCollapse,
   isCollapsed = false,
   showStepBadge = false,
+  executedCommands = [],
 }) => {
   const [inputVal, setInputVal] = useState("");
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
@@ -223,18 +226,26 @@ export const TerminalSimulator: React.FC<TerminalSimulatorProps> = ({
             <span className="text-[10px] uppercase font-sans font-bold text-zinc-500 tracking-wider mr-1 shrink-0">
               Run:
             </span>
-            {QUICK_COMMANDS.map((qc) => (
-              <button
-                key={qc.label}
-                id={`btn-cmd-${qc.label.replace(/\s+/g, "-")}`}
-                onClick={() => onRunCommand(qc.cmd)}
-                disabled={isExecuting}
-                className="px-2 py-0.5 rounded-md bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 border border-zinc-700/60 text-[11px] font-mono transition-colors whitespace-nowrap disabled:opacity-50"
-                title={qc.desc}
-              >
-                {qc.label}
-              </button>
-            ))}
+            {QUICK_COMMANDS.map((qc) => {
+              const hasRun = executedCommands.some((c) => c === qc.cmd || c.startsWith(qc.cmd));
+              return (
+                <button
+                  key={qc.label}
+                  id={`btn-cmd-${qc.label.replace(/\s+/g, "-")}`}
+                  onClick={() => onRunCommand(qc.cmd)}
+                  disabled={isExecuting}
+                  className={`px-2 py-0.5 rounded-md border text-[11px] font-mono transition-colors whitespace-nowrap disabled:opacity-50 flex items-center space-x-1 ${
+                    hasRun
+                      ? "bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border-emerald-700/60"
+                      : "bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 border-zinc-700/60"
+                  }`}
+                  title={hasRun ? `${qc.desc} — already run ✓` : qc.desc}
+                >
+                  {hasRun && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                  <span>{qc.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Logs Scroll Area */}

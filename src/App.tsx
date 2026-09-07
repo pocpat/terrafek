@@ -319,9 +319,7 @@ export default function App() {
                 onStartLab={handleStartLabFromDashboard}
                 onGoToNextLesson={() => goToNextCurriculumLesson({ type: "walkthrough", index: currentWalkthroughIndex })}
                 onCompleteWalkthrough={(id) => {
-                  if (!completedWalkthroughIds.includes(id)) {
-                    setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
-                  }
+                  setCompletedWalkthroughIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
                 }}
               />
             )}
@@ -343,9 +341,7 @@ export default function App() {
                 onRedoLab={handleRedoLab}
                 onBackToDashboard={() => setActiveMode("dashboard")}
                 onLabComplete={(labId) => {
-                  if (!completedLabIds.includes(labId)) {
-                    setCompletedLabIds([...completedLabIds, labId]);
-                  }
+                  setCompletedLabIds((prev) => (prev.includes(labId) ? prev : [...prev, labId]));
                 }}
                 isCompleted={completedLabIds.includes(currentLab.id)}
                 workspaceViewMode={workspaceViewMode}
@@ -375,9 +371,7 @@ export default function App() {
                     )
                   );
                   // Mark drill as completed (persists to localStorage)
-                  if (!completedDrillIds.includes(currentDrill.id)) {
-                    setCompletedDrillIds([...completedDrillIds, currentDrill.id]);
-                  }
+                  setCompletedDrillIds((prev) => (prev.includes(currentDrill.id) ? prev : [...prev, currentDrill.id]));
                 }}
               />
             )}
@@ -424,9 +418,7 @@ export default function App() {
                       onStartLab={handleStartLabFromDashboard}
                       onGoToNextLesson={() => goToNextCurriculumLesson({ type: "walkthrough", index: currentWalkthroughIndex })}
                       onCompleteWalkthrough={(id) => {
-                        if (!completedWalkthroughIds.includes(id)) {
-                          setCompletedWalkthroughIds([...completedWalkthroughIds, id]);
-                        }
+                        setCompletedWalkthroughIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
                       }}
                     />
                   </ErrorBoundary>
@@ -450,9 +442,7 @@ export default function App() {
                       onRedoLab={handleRedoLab}
                       onBackToDashboard={() => setActiveMode("dashboard")}
                       onLabComplete={(labId) => {
-                        if (!completedLabIds.includes(labId)) {
-                          setCompletedLabIds([...completedLabIds, labId]);
-                        }
+                        setCompletedLabIds((prev) => (prev.includes(labId) ? prev : [...prev, labId]));
                       }}
                       isCompleted={completedLabIds.includes(currentLab.id)}
                       workspaceViewMode={workspaceViewMode}
@@ -484,9 +474,7 @@ export default function App() {
                           )
                         );
                         // Mark drill as completed (persists to localStorage)
-                        if (!completedDrillIds.includes(currentDrill.id)) {
-                          setCompletedDrillIds([...completedDrillIds, currentDrill.id]);
-                        }
+                        setCompletedDrillIds((prev) => (prev.includes(currentDrill.id) ? prev : [...prev, currentDrill.id]));
                       }}
                     />
                   </ErrorBoundary>
@@ -602,7 +590,7 @@ export default function App() {
                 >
                   <TerminalIcon className="w-2.5 h-2.5" />
                   <span>Terminal</span>
-                  {terminalLogs.length > 0 && (
+                  {terminalLogs.some((l) => l.command !== "system" && l.command !== "help" && l.command !== "clear") && (
                     <span className="w-1 h-1 rounded-full bg-emerald-500" />
                   )}
                 </button>
@@ -771,6 +759,7 @@ export default function App() {
                   isCollapsed={isTerminalCollapsed}
                   onToggleCollapse={() => setIsTerminalCollapsed((prev) => !prev)}
                   showStepBadge={showWorkspaceNotes}
+                  executedCommands={terminalLogs.filter((l) => l.command !== "system" && l.command !== "help" && l.command !== "clear").map((l) => l.command)}
                 />
               </ErrorBoundary>
             </div>
