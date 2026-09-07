@@ -217,6 +217,39 @@ export function runTerraformValidate(codeMap: Record<string, string>): { valid: 
     }
   });
 
+  // Check for dangling var./local. references — a reference to a variable or
+  // local that is never declared (or declared with different casing). Real
+  // Terraform fails validate with "Reference to undeclared variable".
+  const declaredVars = new Set(parsed.variables.map((v) => v.name));
+  const declaredLocals = new Set(parsed.locals.map((l) => l.name));
+  const refRegex = /\b(var|local)\.([a-zA-Z0-9_-]+)/g;
+  for (const [fileName, content] of Object.entries(codeMap)) {
+    const lines = content.split("\n");
+    for (let li = 0; li < lines.length; li++) {
+      let refMatch: RegExpExecArray | null;
+      refRegex.lastIndex = 0;
+      const lineText = lines[li];
+      while ((refMatch = refRegex.exec(lineText)) !== null) {
+        const kind = refMatch[1];
+        const name = refMatch[2];
+        const declared = kind === "var" ? declaredVars : declaredLocals;
+        if (!declared.has(name)) {
+          const suggested = [...declared].find((d) => d.toLowerCase() === name.toLowerCase());
+          const msg = `Reference to undeclared ${kind}.${name}${suggested ? ` — did you mean ${kind}.${suggested}?` : ""}`;
+          errors.push(msg);
+          detailedErrors.push({
+            message: msg,
+            line: li + 1,
+            fileName,
+            severity: "error",
+            eli5: `You used ${kind}.${name}, but no ${kind === "var" ? "variable" : "locals"} block declares "${name}"${suggested ? `. A ${kind === "var" ? "variable" : "local"} called "${suggested}" exists — Terraform names are case-sensitive, so the spelling must match exactly` : ". Declare it first (or check the spelling)"}.`,
+            fixHint: suggested ? `Change ${kind}.${name} to ${kind}.${suggested}` : `Declare "${name}" or fix the spelling`,
+          });
+        }
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

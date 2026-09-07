@@ -39,10 +39,72 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     if (/^tags\s*=\s*\{/.test(line)) inTagsBlock = true;
     if (line === "}") inTagsBlock = false;
 
-    // Skip block headers (resource "type" "name" {) and closing braces
+    // Skip closing braces and bare openers
     if (line === "}" || line === "]" || line === "{" || line === "[") {
       continue;
     }
+
+    // --- Check 0b: Wrong-cased TYPE inside quotes ---
+    // provider "AWS", resource "AWS_INSTANCE" — the keyword is fine but the
+    // quoted type must be lowercase too. Real Terraform rejects these; the
+    // lenient parser silently ignores the whole block.
+    // NOTE: must run BEFORE the block-header skip below, which would otherwise
+    // swallow lines like `provider "AWS" {` silently.
+    const quotedTypeMatch = line.match(/^(resource|data|provider|module)\s+"([A-Za-z0-9_]+)"/);
+    if (quotedTypeMatch) {
+      const typeToken = quotedTypeMatch[2];
+      if (/[A-Z]/.test(typeToken)) {
+        issues.push({
+          line: i + 1,
+          column: rawLine.indexOf(`"${typeToken}"`) + 2,
+          severity: "error",
+          message: `Type "${typeToken}" is not valid — resource and provider types are lowercase.`,
+          eli5: `You wrote "${typeToken}", but Terraform types are always lowercase (e.g. "aws_s3_bucket", "aws"). Terraform doesn't recognize "${typeToken}" and rejects the block.`,
+          fixHint: `Change "${typeToken}" to "${typeToken.toLowerCase()}"`,
+        });
+        continue;
+      }
+    }
+
+    // --- Check 0c: Unknown aws_* resource type (likely typo) ---
+    // resource "aws_instence" — shaped like a real type but not one Terraform
+    // knows. The parser drops the block silently and validate passes.
+    const awsTypeMatch = line.match(/^resource\s+"(aws_[a-z0-9_]+)"\s+"[a-zA-Z0-9_-]+"/);
+    if (awsTypeMatch) {
+      const type = awsTypeMatch[1];
+      // Common canonical types taught across the course
+      const KNOWN_AWS_TYPES = [
+        "aws_s3_bucket", "aws_instance", "aws_vpc", "aws_subnet", "aws_security_group",
+        "aws_internet_gateway", "aws_route_table", "aws_route_table_association",
+        "aws_db_instance", "aws_lb", "aws_alb", "aws_autoscaling_group",
+        "aws_launch_template", "aws_launch_configuration", "aws_iam_role",
+        "aws_iam_policy", "aws_iam_role_policy_attachment", "aws_dynamodb_table",
+        "aws_s3_bucket_versioning", "aws_s3_bucket_server_side_encryption_configuration",
+        "aws_ecr_repository", "aws_lambda_function", "aws_cloudwatch_log_group",
+      ];
+      if (!KNOWN_AWS_TYPES.includes(type)) {
+        // Find the closest known type by simple distance (typo detection)
+        let closest: string | undefined = undefined;
+        for (const k of KNOWN_AWS_TYPES) {
+          if (Math.abs(k.length - type.length) > 2) continue;
+          let diff = 0;
+          for (let c = 0; c < Math.min(k.length, type.length); c++) if (k[c] !== type[c]) diff++;
+          diff += Math.abs(k.length - type.length);
+          if (diff <= 2) { closest = k; break; }
+        }
+        issues.push({
+          line: i + 1,
+          column: rawLine.indexOf(`"${type}"`) + 2,
+          severity: "error",
+          message: `"${type}" is not a known AWS resource type.${closest ? ` Did you mean "${closest}"?` : ""}`,
+          eli5: `Terraform doesn't know a resource type called "${type}".${closest ? ` The correct type is "${closest}" — check the spelling.` : " Check the Terraform docs for the exact type name."} An unknown type makes Terraform ignore the whole block.`,
+          fixHint: closest ? `Replace "${type}" with "${closest}"` : `Check the spelling of "${type}"`,
+        });
+        continue;
+      }
+    }
+
+    // Skip block headers (resource "type" "name" {) and closing braces
     if (/^(resource|data|provider|variable|output|module|locals|terraform)\s/.test(line)) {
       continue;
     }
@@ -173,6 +235,22 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
           });
         }
       }
+    }
+
+    // --- Check 4b: Trailing space INSIDE quotes ---
+    // instance_type = "t3.small " — a trailing space inside the quotes makes a
+    // DIFFERENT value than "t3.small" (AWS rejects it). The leading-space rule
+    // exists elsewhere; this catches the trailing variant.
+    const trailQuote = line.match(/=\s*"[^"]*([ \t]+)"/);
+    if (trailQuote) {
+      issues.push({
+        line: i + 1,
+        column: rawLine.indexOf(trailQuote[1]) + 1,
+        severity: "error",
+        message: `There is a space INSIDE the quotes, at the end of the value.`,
+        eli5: `Your value ends with a space inside the quotes: "... ". Terraform compares the EXACT string — "t3.small " (with a space) is a different value from "t3.small" and the checklist will not accept it.`,
+        fixHint: `Delete the space before the closing quote`,
+      });
     }
 
     // --- Check 5: Wrong-cased canonical tag keys ---
