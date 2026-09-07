@@ -337,7 +337,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase1Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
-                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id);
                     const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
@@ -459,7 +459,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase2Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
-                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id);
                     const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
@@ -570,7 +570,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {phase3Items.map((item, idx) => {
                   if (item.type === "walkthrough") {
-                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id) || currentWalkthroughIndex >= item.index;
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id);
                     const isCurrent = currentWalkthroughIndex === item.index;
                     return (
                       <div
