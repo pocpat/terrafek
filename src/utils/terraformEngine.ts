@@ -1,5 +1,6 @@
 import { TerraformStateFile, ParsedResource } from "../types/terraform";
 import { parseHclCode } from "./hclParser";
+import { checkHclSyntax } from "./hclSyntaxChecker";
 
 export interface PlanResult {
   addCount: number;
@@ -74,6 +75,25 @@ export function runTerraformValidate(codeMap: Record<string, string>): { valid: 
       errors.push(e);
       detailedErrors.push({ message: e, severity: "error" });
     });
+  }
+
+  // Surface line-level syntax issues (wrong-cased keywords, unquoted template
+  // strings, etc.) in the terminal too — the lenient parser silently ignores
+  // them, but real `terraform validate` would fail on this code.
+  for (const [fileName, content] of Object.entries(codeMap)) {
+    for (const issue of checkHclSyntax(content)) {
+      if (issue.severity !== "error") continue; // validate only fails on errors
+      const msg = `${fileName}:${issue.line}: ${issue.message}`;
+      errors.push(msg);
+      detailedErrors.push({
+        message: msg,
+        line: issue.line,
+        fileName,
+        severity: "error",
+        eli5: issue.eli5,
+        fixHint: issue.fixHint,
+      });
+    }
   }
 
   // Helper: find the line number of a resource block in a specific file

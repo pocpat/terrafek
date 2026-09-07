@@ -47,6 +47,29 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
       continue;
     }
 
+    // --- Check 0: Wrong-cased block keyword ---
+    // HCL keywords are lowercase. "Locals {", "Resource ...", "Variable ..." are
+    // invalid blocks Terraform rejects — but they slip past every other check
+    // (and the lenient parser silently ignores them), so catch them here.
+    const keywordMatch = line.match(/^([A-Za-z]+)(\s*[{"])/);
+    if (keywordMatch) {
+      const word = keywordMatch[1];
+      const canonical = ["resource", "data", "provider", "variable", "output", "module", "locals", "terraform"].find(
+        (k) => k.toLowerCase() === word.toLowerCase()
+      );
+      if (canonical && word !== canonical) {
+        issues.push({
+          line: i + 1,
+          column: 1,
+          severity: "error",
+          message: `Block keyword "${word}" is not valid — block names are lowercase.`,
+          eli5: `You wrote "${word}", but Terraform block keywords must be exactly "${canonical}" (all lowercase). Terraform treats "${word}" as an unknown word and ignores or rejects the whole block.`,
+          fixHint: `Rename "${word}" to "${canonical}"`,
+        });
+        continue;
+      }
+    }
+
     // --- Check 1: Colon instead of equals sign ---
     // Matches:  bucket : "value"   or  bucket: "value"
     // But NOT:  tags = { Name = "x" }  (nested map uses =, which is fine)
@@ -110,6 +133,21 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     const attrMatch = line.match(/^([a-zA-Z0-9_-]+)\s*=\s*(.+)$/);
     if (attrMatch) {
       const val = attrMatch[2].trim().replace(/,$/, "").replace(/\/\/.*$/, "").trim();
+
+      // 4a. Unquoted template interpolation: server_name = app-web-${var.environment}
+      // HCL REQUIRES quotes around template strings — this is a hard error real
+      // Terraform rejects, but it slipped past every check silently.
+      if (val.includes("${") && !val.startsWith('"')) {
+        issues.push({
+          line: i + 1,
+          column: rawLine.indexOf(val) + 1,
+          severity: "error",
+          message: `The value must be wrapped in double quotes — template strings like \${...} only work inside "..."`,
+          eli5: `You wrote "${val}" without quotes. In HCL, template strings with \${...} interpolation must be wrapped in double quotes: "${val.replace(/"/g, '\\"')}".`,
+          fixHint: `Wrap the value in double quotes: ${val} → "${val.replace(/"/g, '\\"')}"`,
+        });
+        continue;
+      }
 
       // Skip if it's a reference (contains dots like aws_vpc.main.id), boolean, number, or function call
       const isReference = /^[a-zA-Z0-9_.]+\.[a-zA-Z0-9_.]+/.test(val);

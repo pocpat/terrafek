@@ -115,11 +115,34 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
 
   // 8. Lab-3: locals block missing entirely
   if (labId === "lab-3-variables-locals" && !/\blocals\b/.test(main)) {
-    out.push({
-      severity: "warning",
-      message: "No locals block found — task 4 needs one computing server_name.",
-      fix: 'Add:\nlocals {\n  server_name = "app-web-${var.environment}"\n}',
-    });
+    // 8a. Wrong-cased "Locals" — the learner HAS a locals block but its keyword
+    // is capitalized, so Terraform (and the parser) ignore it completely.
+    const wrongCase = main.match(/^\s*(Locals|LOCALS)\s*\{/m);
+    if (wrongCase) {
+      out.push({
+        severity: "error",
+        message: `You wrote "${wrongCase[1]}" — block keywords must be lowercase: "locals". Terraform ignores "Locals" completely, so your block doesn't exist.`,
+        fix: "Change the first word to lowercase:\nlocals {\n  server_name = \"app-web-${var.environment}\"\n}",
+      });
+    } else {
+      out.push({
+        severity: "warning",
+        message: "No locals block found — task 4 needs one computing server_name.",
+        fix: 'Add:\nlocals {\n  server_name = "app-web-${var.environment}"\n}',
+      });
+    }
+  }
+
+  // 8b. Lab-3: unquoted template value inside locals
+  if (labId === "lab-3-variables-locals" && /\blocals\b/.test(main)) {
+    const unquoted = main.match(/^\s*server_name\s*=\s*([^"\s][^\n]*)$/m);
+    if (unquoted && unquoted[1].includes("${")) {
+      out.push({
+        severity: "error",
+        message: 'The server_name value needs double quotes — template strings with ${...} only work inside "..."',
+        fix: 'locals {\n  server_name = "app-web-${var.environment}"\n}',
+      });
+    }
   }
 
   // Most blocking problems first: errors before warnings, discovery order kept
