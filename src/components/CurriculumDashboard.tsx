@@ -153,6 +153,34 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   const phase2Items = buildPhaseItems(2);
   const phase3Items = buildPhaseItems(3);
 
+  // PHASE 2 FULL RESET — "like I never did it": removes Phase-2 completions AND
+  // saved code memory, resets navigation to the start of Phase 2, then reloads.
+  // In-app (no console needed) so it can't be defeated by copy-paste mistakes
+  // or stale tabs re-persisting old state.
+  const PHASE2_WALKTHROUGHS = ["concept-state", "concept-dag"];
+  const PHASE2_LABS = ["lab-3-variables-locals", "lab-4-networking-dependencies", "lab-5-outputs-sensitive"];
+  const [phase2ResetArmed, setPhase2ResetArmed] = useState(false);
+  const handlePhase2Reset = () => {
+    if (!phase2ResetArmed) {
+      setPhase2ResetArmed(true); // first click arms — second click executes
+      return;
+    }
+    try {
+      const wt = JSON.parse(localStorage.getItem("tf_completed_walkthroughs") || "[]")
+        .filter((id: string) => !PHASE2_WALKTHROUGHS.includes(id));
+      const labs = JSON.parse(localStorage.getItem("tf_completed_labs") || "[]")
+        .filter((id: string) => !PHASE2_LABS.includes(id));
+      localStorage.setItem("tf_completed_walkthroughs", JSON.stringify(wt));
+      localStorage.setItem("tf_completed_labs", JSON.stringify(labs));
+      for (const id of PHASE2_LABS) localStorage.removeItem(`tf_lab_code_${id}`);
+      localStorage.setItem("tf_walkthrough_index", "3");
+      localStorage.setItem("tf_lab_index", "2");
+    } catch {
+      // storage unavailable — reload anyway; user sees current state
+    }
+    window.location.reload();
+  };
+
   const handleNextRecommendedClick = () => {
     const next = progressSummary.nextRecommendedLesson;
     if (next.type === "lab") {
@@ -468,7 +496,20 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                     State Engine, DAG Graph & Lifecycle Automation
                   </h3>
                 </div>
-                <span className="text-xs font-mono text-stone-500">6 Modules</span>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-mono text-stone-500">6 Modules</span>
+                  <button
+                    onClick={handlePhase2Reset}
+                    className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
+                      phase2ResetArmed
+                        ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600"
+                        : "bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200"
+                    }`}
+                    title={phase2ResetArmed ? "Click again to confirm — clears Phase 2 completions and saved code" : "Reset Phase 2 progress to 'never done'"}
+                  >
+                    {phase2ResetArmed ? "Confirm reset" : "Reset Phase 2"}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
