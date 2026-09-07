@@ -625,7 +625,16 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <span className="text-xs text-stone-500 font-mono">{lab.difficulty}</span>
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isDone ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Passed ✓</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{lab.tasks.length} Tasks</span>
+                            )}
+                          </div>
                           <button
                             onClick={() => onStartLab(item.index)}
                             className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
@@ -751,7 +760,16 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                           </p>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <span className="text-xs text-stone-500 font-mono">{lab.difficulty}</span>
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isDone ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Passed ✓</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{lab.tasks.length} Tasks</span>
+                            )}
+                          </div>
                           <button
                             onClick={() => onStartLab(item.index)}
                             className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
