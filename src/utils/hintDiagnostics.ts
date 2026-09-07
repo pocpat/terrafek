@@ -145,6 +145,19 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 8c. Lab-3: quoted references — "var.x" / "local.x" inside quotes are
+  // literal text, not references. Task regexes reject them silently.
+  if (labId === "lab-3-variables-locals") {
+    const quotedRef = all.match(/=\s*"((?:var|local)\.[a-zA-Z0-9_.-]+)"/);
+    if (quotedRef) {
+      out.push({
+        severity: "error",
+        message: `"${quotedRef[1]}" is inside quotes — that makes it plain TEXT, not a reference. Remove the quotes to use its value.`,
+        fix: `Change "${quotedRef[1]}" to ${quotedRef[1]} (no quotes)`,
+      });
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;

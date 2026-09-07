@@ -96,6 +96,47 @@ describe("audit gaps — second round", () => {
     expect(result.errors.filter((e) => e.includes("undeclared"))).toHaveLength(0);
   });
 });
+describe("round 3 — user-reported Lab 2.2 cases", () => {
+  it("flags quoted reference: instance_type = \"var.instance_type\"", () => {
+    const issues = checkHclSyntax('resource "aws_instance" "app" {\n  instance_type = "var.instance_type"\n}');
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("plain TEXT"))).toBe(true);
+    expect(issues.some((i) => i.fixHint.includes("var.instance_type"))).toBe(true);
+  });
+
+  it("flags quoted local reference: Name = \"local.server_name\"", () => {
+    const issues = checkHclSyntax('tags = {\n  Name = "local.server_name"\n}');
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("local.server_name"))).toBe(true);
+  });
+
+  it("does NOT flag correct unquoted references", () => {
+    const code = 'resource "aws_instance" "app" {\n  instance_type = var.instance_type\n  tags = {\n    Name = local.server_name\n  }\n}';
+    expect(checkHclSyntax(code).filter((i) => i.severity === "error" && i.message.includes("plain TEXT"))).toHaveLength(0);
+  });
+
+  it("does NOT flag legitimate quoted strings (ami id, region, names)", () => {
+    const code = 'provider "aws" {\n  region = "eu-west-1"\n}\n\nresource "aws_instance" "app" {\n  ami = "ami-0c55b159cbfafe1f0"\n  tags = {\n    Name = "app-web"\n  }\n}';
+    expect(checkHclSyntax(code).filter((i) => i.severity === "error")).toHaveLength(0);
+  });
+
+  it("hint engine names the quoted-reference mistake for lab-3", () => {
+    const out = diagnoseTask({
+      files: {
+        "main.tf": 'locals {\n  server_name = "app-web-${var.environment}"\n}\n\nresource "aws_instance" "app" {\n  ami = "ami-0c55b159cbfafe1f0"\n  instance_type = "var.instance_type"\n  tags = {\n    Name = "local.server_name"\n  }\n}',
+      },
+      labId: "lab-3-variables-locals",
+    });
+    expect(out.some((d) => d.message.includes("plain TEXT"))).toBe(true);
+  });
+
+  it("user's exact final code produces errors for BOTH quoted refs", () => {
+    const result = runTerraformValidate({
+      "main.tf": 'provider "aws"{\nregion= "eu-west-1"\n}\n\nlocals {\nserver_name = "app-web-${var.environment}"\n}\n\nresource "aws_instance" "app" {\n\nami = "ami-0c55b159cbfafe1f0"\ninstance_type = "var.instance_type"\n\ntags = {\nName = "local.server_name"\n}\n}',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.filter((e) => e.includes("plain TEXT")).length).toBe(2);
+  });
+});
+
 describe("terraform validate surfaces syntax errors", () => {
   it("invalid code with wrong-cased Locals + unquoted template fails validate", () => {
     const result = runTerraformValidate({

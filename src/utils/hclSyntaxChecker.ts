@@ -237,6 +237,24 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
       }
     }
 
+    // --- Check 4c: Quoted reference — "var.x" / "local.x" inside quotes ---
+    // instance_type = "var.instance_type" — quotes turn the reference into a
+    // LITERAL string. Terraform accepts it silently (the instance gets named
+    // literally "var.instance_type") and nothing else flags it. The task
+    // regexes correctly reject it, but the learner gets zero explanation.
+    const quotedRef = line.match(/=\s*"((?:var|local|module|data)\.[a-zA-Z0-9_.-]+)"/);
+    if (quotedRef) {
+      issues.push({
+        line: i + 1,
+        column: rawLine.indexOf(quotedRef[1]) + 1,
+        severity: "error",
+        message: `"${quotedRef[1]}" is inside quotes — that makes it plain TEXT, not a reference.`,
+        eli5: `You wrote "${quotedRef[1]}" in quotes. Quotes mean "use this exact text". To USE the value of ${quotedRef[1]}, remove the quotes: ${quotedRef[1]}.`,
+        fixHint: `Remove the quotes: "${quotedRef[1]}" → ${quotedRef[1]}`,
+      });
+      continue;
+    }
+
     // --- Check 4b: Trailing space INSIDE quotes ---
     // instance_type = "t3.small " — a trailing space inside the quotes makes a
     // DIFFERENT value than "t3.small" (AWS rejects it). The leading-space rule

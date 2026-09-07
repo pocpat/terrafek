@@ -275,8 +275,8 @@ resource "aws_instance" "web_server" {
       },
       {
         id: "task-5",
-        description: "In 'main.tf', declare an aws_instance 'app' and use 'local.server_name' as its Name tag.",
-        hint: "Create the resource with a tags block:\nresource \"aws_instance\" \"app\" {\n  ami = \"ami-0c55b159cbfafe1f0\"\n  tags = {\n    Name = local.server_name\n  }\n}",
+        description: "In 'main.tf', declare an aws_instance 'app' and use 'local.server_name' as its Name tag. Include an ami (use \"ami-0c55b159cbfafe1f0\") so the resource is complete.",
+        hint: "Create the resource with a tags block (the ami ID comes from Lab 1's instance — reuse it):\nresource \"aws_instance\" \"app\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = var.instance_type\n  tags = {\n    Name = local.server_name\n  }\n}",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           return /resource\s+"aws_instance"\s+"app"\s*\{/s.test(main) && main.includes("local.server_name");
