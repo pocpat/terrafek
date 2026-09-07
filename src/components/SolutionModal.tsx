@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Eye, X, Copy, Check, FileCode, ArrowDownRight, Sparkles } from "lucide-react";
 import { LabDefinition } from "../types/terraform";
+import { formatLabTitle } from "../utils/labNumbering";
+import { LABS_DATA } from "../data/labsData";
 
 interface SolutionModalProps {
   isOpen: boolean;
@@ -44,7 +46,7 @@ export const SolutionModal: React.FC<SolutionModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-serif font-bold text-stone-900">Solution & Explanation</h3>
-              <p className="text-[11px] text-stone-500 font-sans">{lab.title}</p>
+              <p className="text-[11px] text-stone-500 font-sans">{formatLabTitle(LABS_DATA, lab.id)}</p>
             </div>
           </div>
 

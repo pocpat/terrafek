@@ -18,6 +18,7 @@ import {
   Compass
 } from "lucide-react";
 import { LABS_DATA } from "./data/labsData";
+import { formatLabTitle } from "./utils/labNumbering";
 import { WALKTHROUGHS_DATA } from "./data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "./data/remediationDrillsData";
 import { CURRICULUM_ORDER } from "./data/curriculumSequence";
@@ -793,7 +794,7 @@ export default function App() {
           isOpen={isAiMentorOpen}
           onClose={() => setIsAiMentorOpen(false)}
           currentCode={files[activeFile] || ""}
-          labTitle={activeMode === "walkthrough" ? currentWalkthrough.title : currentLab.title}
+          labTitle={activeMode === "walkthrough" ? currentWalkthrough.title : formatLabTitle(LABS_DATA, currentLab.id)}
           labGoal={activeMode === "walkthrough" ? currentWalkthrough.steps[0]?.title : currentLab.visualGoal}
           terminalOutput={terminalLogs.slice(-2).map((l) => l.output).join("\n")}
           initialQuestion={aiInitialPrompt}

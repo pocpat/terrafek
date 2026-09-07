@@ -13,6 +13,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { LabDefinition } from "../types/terraform";
+import { formatLabTitle } from "../utils/labNumbering";
+import { LABS_DATA } from "../data/labsData";
 import { reviewCodeQuality, QualityCheck } from "../utils/codeQualityEngine";
 
 interface CodeQualityModalProps {
@@ -95,7 +97,7 @@ export const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-serif font-bold text-stone-900">Code Quality Review</h3>
-              <p className="text-[11px] text-stone-500 font-sans">{lab.title}</p>
+              <p className="text-[11px] text-stone-500 font-sans">{formatLabTitle(LABS_DATA, lab.id)}</p>
             </div>
           </div>
           <button

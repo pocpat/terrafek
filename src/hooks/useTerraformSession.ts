@@ -11,6 +11,8 @@ import {
   type ValidationError,
 } from "../utils/terraformEngine";
 import { parseHclCode } from "../utils/hclParser";
+import { formatLabTitle } from "../utils/labNumbering";
+import { LABS_DATA } from "../data/labsData";
 import {
   TerraformStateFile,
   TerminalCommandLog,
@@ -139,7 +141,7 @@ export function useTerraformSession(params: UseTerraformSessionParams): Terrafor
       setActiveFile(Object.keys(currentLab.starterFiles)[0] || "main.tf");
       setTfState(currentLab.initialState ? JSON.parse(JSON.stringify(currentLab.initialState)) : createEmptyState());
       setValidationStatus(null);
-      addTerminalLog("system", `Loaded Lab: ${currentLab.title}. Type 'terraform init' or 'terraform plan' to begin.`);
+      addTerminalLog("system", `Loaded Lab: ${formatLabTitle(LABS_DATA, currentLab.id)}. Type 'terraform init' or 'terraform plan' to begin.`);
     } else if (activeMode === "walkthrough") {
       setFiles({ ...currentWalkthrough.starterFiles });
       setActiveFile(Object.keys(currentWalkthrough.starterFiles)[0] || "main.tf");
@@ -170,7 +172,7 @@ export function useTerraformSession(params: UseTerraformSessionParams): Terrafor
         setCompletedLabIds((prev) => [...prev, currentLab.id]);
         setTotalXp((xp) => xp + currentLab.xp);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-        addTerminalLog("system", `🎉 Congratulations! You completed "${currentLab.title}" and earned +${currentLab.xp} XP!`);
+        addTerminalLog("system", `🎉 Congratulations! You completed "${formatLabTitle(LABS_DATA, currentLab.id)}" and earned +${currentLab.xp} XP!`);
       }
     }
   }, [files, tfState, parsedData, currentLab, activeMode, completedLabIds]); // eslint-disable-line react-hooks/exhaustive-deps

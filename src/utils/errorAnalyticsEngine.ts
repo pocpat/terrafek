@@ -9,6 +9,7 @@ import { WALKTHROUGHS_DATA } from "../data/walkthroughsData";
 import { REMEDIATION_DRILLS_DATA } from "../data/remediationDrillsData";
 import { safeGetItem, safeSetItem, safeGetNumber } from "../utils/safeStorage";
 import { CURRICULUM_ORDER } from "../data/curriculumSequence";
+import { formatLabTitle } from "./labNumbering";
 
 // Initial seed errors: starts empty so learners only see diagnostics & skill gaps after actual lab activity and mistakes
 export const INITIAL_SEED_ERRORS: LoggedErrorEvent[] = [];
@@ -327,7 +328,7 @@ export function calculateCourseProgress(
         nextRecommended = {
           type: "lab",
           index: nextItem.index,
-          title: lab.title,
+          title: formatLabTitle(LABS_DATA, lab.id),
           reason: `Next core curriculum challenge in ${lab.category}`
         };
       } else {
