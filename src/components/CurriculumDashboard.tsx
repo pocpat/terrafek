@@ -153,28 +153,37 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   const phase2Items = buildPhaseItems(2);
   const phase3Items = buildPhaseItems(3);
 
-  // PHASE 2 FULL RESET — "like I never did it": removes Phase-2 completions AND
-  // saved code memory, resets navigation to the start of Phase 2, then reloads.
-  // In-app (no console needed) so it can't be defeated by copy-paste mistakes
-  // or stale tabs re-persisting old state.
-  const PHASE2_WALKTHROUGHS = ["concept-state", "concept-dag"];
-  const PHASE2_LABS = ["lab-3-variables-locals", "lab-4-networking-dependencies", "lab-5-outputs-sensitive"];
-  const [phase2ResetArmed, setPhase2ResetArmed] = useState(false);
-  const handlePhase2Reset = () => {
-    if (!phase2ResetArmed) {
-      setPhase2ResetArmed(true); // first click arms — second click executes
+  // PHASE RESET — "like I never did it": removes a phase's completions AND
+  // saved code memory, resets navigation to that phase's first lesson, then
+  // reloads. In-app (no console needed) so it can't be defeated by copy-paste
+  // mistakes or stale tabs re-persisting old state.
+  const phaseContentIds = (phaseNum: 1 | 2 | 3) => {
+    const items = CURRICULUM_ORDER.filter((c) => c.phase === phaseNum);
+    return {
+      walkthroughIds: items.filter((c) => c.type === "walkthrough").map((c) => WALKTHROUGHS_DATA[c.index].id),
+      labIds: items.filter((c) => c.type === "lab").map((c) => LABS_DATA[c.index].id),
+      firstWalkthroughIdx: items.find((c) => c.type === "walkthrough")?.index ?? 0,
+      firstLabIdx: items.find((c) => c.type === "lab")?.index ?? 0,
+    };
+  };
+  const [armedPhase, setArmedPhase] = useState<1 | 2 | 3 | null>(null);
+  const handlePhaseReset = (phaseNum: 1 | 2 | 3) => {
+    if (armedPhase !== phaseNum) {
+      setArmedPhase(phaseNum); // first click arms — second click executes
       return;
     }
+    setArmedPhase(null);
+    const { walkthroughIds, labIds, firstWalkthroughIdx, firstLabIdx } = phaseContentIds(phaseNum);
     try {
       const wt = JSON.parse(localStorage.getItem("tf_completed_walkthroughs") || "[]")
-        .filter((id: string) => !PHASE2_WALKTHROUGHS.includes(id));
+        .filter((id: string) => !walkthroughIds.includes(id));
       const labs = JSON.parse(localStorage.getItem("tf_completed_labs") || "[]")
-        .filter((id: string) => !PHASE2_LABS.includes(id));
+        .filter((id: string) => !labIds.includes(id));
       localStorage.setItem("tf_completed_walkthroughs", JSON.stringify(wt));
       localStorage.setItem("tf_completed_labs", JSON.stringify(labs));
-      for (const id of PHASE2_LABS) localStorage.removeItem(`tf_lab_code_${id}`);
-      localStorage.setItem("tf_walkthrough_index", "3");
-      localStorage.setItem("tf_lab_index", "2");
+      for (const id of labIds) localStorage.removeItem(`tf_lab_code_${id}`);
+      localStorage.setItem("tf_walkthrough_index", String(firstWalkthroughIdx));
+      localStorage.setItem("tf_lab_index", String(firstLabIdx));
     } catch {
       // storage unavailable — reload anyway; user sees current state
     }
@@ -364,7 +373,20 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                     Foundations & HCL Syntax Fundamentals
                   </h3>
                 </div>
-                <span className="text-xs font-mono text-stone-500">5 Modules</span>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-mono text-stone-500">5 Modules</span>
+                  <button
+                    onClick={() => handlePhaseReset(1)}
+                    className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
+                      armedPhase === 1
+                        ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600"
+                        : "bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200"
+                    }`}
+                    title={armedPhase === 1 ? "Click again to confirm — clears Phase 1 completions and saved code" : "Reset Phase 1 progress to 'never done'"}
+                  >
+                    {armedPhase === 1 ? "Confirm reset" : "Reset Phase 1"}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -499,15 +521,15 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                 <div className="flex items-center space-x-2.5">
                   <span className="text-xs font-mono text-stone-500">6 Modules</span>
                   <button
-                    onClick={handlePhase2Reset}
+                    onClick={() => handlePhaseReset(2)}
                     className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
-                      phase2ResetArmed
+                      armedPhase === 2
                         ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600"
                         : "bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200"
                     }`}
-                    title={phase2ResetArmed ? "Click again to confirm — clears Phase 2 completions and saved code" : "Reset Phase 2 progress to 'never done'"}
+                    title={armedPhase === 2 ? "Click again to confirm — clears Phase 2 completions and saved code" : "Reset Phase 2 progress to 'never done'"}
                   >
-                    {phase2ResetArmed ? "Confirm reset" : "Reset Phase 2"}
+                    {armedPhase === 2 ? "Confirm reset" : "Reset Phase 2"}
                   </button>
                 </div>
               </div>
@@ -630,7 +652,20 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                     Modular Infrastructure & Production Multi-Tier Cloud
                   </h3>
                 </div>
-                <span className="text-xs font-mono text-stone-500">4 Modules</span>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-mono text-stone-500">4 Modules</span>
+                  <button
+                    onClick={() => handlePhaseReset(3)}
+                    className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
+                      armedPhase === 3
+                        ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600"
+                        : "bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200"
+                    }`}
+                    title={armedPhase === 3 ? "Click again to confirm — clears Phase 3 completions and saved code" : "Reset Phase 3 progress to 'never done'"}
+                  >
+                    {armedPhase === 3 ? "Confirm reset" : "Reset Phase 3"}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
