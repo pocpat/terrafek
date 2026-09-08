@@ -189,3 +189,51 @@ describe("round 4 — lab 2.4 missing-value bug (user-reported)", () => {
     expect(task3.validationCheck(lab.solutionFiles, createEmptyState(), [])).toBe(true);
   });
 });
+
+describe("round 5 — lab 4.1 task-1 services map (user-reported)", () => {
+  const USER_CODE = 'variable "services" {\nkey = foreach[frontend,backend,worker]\n}';
+
+  it("names the iteration-syntax mistake instead of the generic fallback", () => {
+    const out = diagnoseTask({ files: { "variables.tf": USER_CODE }, labId: "lab-7-count-and-for-each" });
+    expect(out.some((d) => d.message.includes("does not belong inside a variable declaration"))).toBe(true);
+  });
+
+  it("flags bracket-list keys as needing key = value pairs", () => {
+    const out = diagnoseTask({
+      files: { "variables.tf": 'variable "services" {\n  type = map(string)\n  default = [frontend, backend, worker]\n}' },
+      labId: "lab-7-count-and-for-each",
+    });
+    expect(out.some((d) => d.message.includes("key = value pairs"))).toBe(true);
+  });
+
+  it("flags comma-joined block arguments", () => {
+    const out = diagnoseTask({
+      files: { "variables.tf": 'variable "services" { type = map(string), default = { frontend = "t3.small" } }' },
+      labId: "lab-7-count-and-for-each",
+    });
+    expect(out.some((d) => d.message.includes("LINE BREAKS, not commas"))).toBe(true);
+  });
+
+  it("flags a missing tier key", () => {
+    const out = diagnoseTask({
+      files: { "variables.tf": 'variable "services" {\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend = "t3.medium"\n  }\n}' },
+      labId: "lab-7-count-and-for-each",
+    });
+    expect(out.some((d) => d.message.includes('missing the key "worker"'))).toBe(true);
+  });
+
+  it("correct map produces NO diagnostics", () => {
+    const out = diagnoseTask({
+      files: { "variables.tf": 'variable "services" {\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend  = "t3.medium"\n    worker   = "t3.micro"\n  }\n}' },
+      labId: "lab-7-count-and-for-each",
+    });
+    expect(out.filter((d) => d.message.includes("services") || d.message.includes("map")).length).toBe(0);
+  });
+
+  it("task-1 check accepts the correctly formatted map", () => {
+    const lab = LABS_DATA.find((l) => l.id === "lab-7-count-and-for-each")!;
+    const task1 = lab.tasks.find((t) => t.id === "task-1")!;
+    const good = 'variable "services" {\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend = "t3.medium"\n    worker = "t3.micro"\n  }\n}';
+    expect(task1.validationCheck({ "variables.tf": good }, createEmptyState(), [])).toBe(true);
+  });
+});

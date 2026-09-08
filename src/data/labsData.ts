@@ -752,7 +752,7 @@ resource "aws_instance" "app" {
       {
         id: "task-1",
         description: "Define a map variable 'services' with keys 'frontend', 'backend', and 'worker'.",
-        hint: "In variables.tf: variable \"services\" { type = map(string), default = { frontend = \"t3.small\", backend = \"t3.medium\", worker = \"t3.micro\" } } — but write the three entries yourself.",
+        hint: "The three tiers are map KEYS; each key maps to that tier's instance size:\n\nvariable \"services\" {\n  type = map(string)\n  default = {\n    frontend = \"t3.small\"\n    backend  = \"t3.medium\"\n    worker   = \"t3.micro\"\n  }\n}\n\nOne line per tier — the key name (frontend/backend/worker) is up to the map, the value is that tier's instance type.",
         validationCheck: (codeMap) => {
           const v = codeMap["variables.tf"] || "";
           return /variable\s+"services"/.test(v) && /type\s*=\s*map\(string\)/.test(v) &&
@@ -762,7 +762,7 @@ resource "aws_instance" "app" {
       {
         id: "task-2",
         description: "Use the for_each meta-argument to iterate over the 'services' variable you just defined. Each instance should use the iteration value as its instance type.",
-        hint: "resource \"aws_instance\" \"service\" { for_each = var.services, instance_type = each.value, ... }",
+        hint: "One resource block iterates the whole map — each key becomes its own instance:\n\nresource \"aws_instance\" \"service\" {\n  for_each      = var.services\n  instance_type = each.value\n\n  tags = {\n    Name = \"service-\${each.key}\"\n  }\n}\n\neach.key = \"frontend\" / \"backend\" / \"worker\" — each.value = that tier's instance type.",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           return /for_each\s*=\s*var\.services/.test(main) && main.includes("each.value");

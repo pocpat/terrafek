@@ -158,6 +158,72 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 9. Lab-7 task-1: variable "services" map mistakes
+  if (labId === "lab-7-count-and-for-each") {
+    const servicesBlock = variables.match(/variable\s+"services"\s*\{([\s\S]*?)\n?\}/);
+
+    if (!servicesBlock) {
+      // No services variable at all — but only diagnose if the user wrote
+      // SOMETHING in variables.tf (they attempted the task)
+      if (variables.trim() && /variable|services/i.test(variables)) {
+        out.push({
+          severity: "error",
+          message: 'No variable "services" block found in variables.tf — task 1 needs a map with the three tier keys.',
+          fix: 'Declare it:\nvariable "services" {\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend  = "t3.medium"\n    worker   = "t3.micro"\n  }\n}',
+        });
+      }
+    } else {
+      const body = servicesBlock[1];
+
+      // 9a. Iteration syntax inside a variable declaration — the user's exact bug
+      if (/for(each)?\s*\[|foreach/i.test(body) || /for_each/.test(body)) {
+        out.push({
+          severity: "error",
+          message: '"for_each" (or foreach[...]) does not belong inside a variable declaration. A variable just DESCRIBES the data — for_each is used later, inside the resource block that consumes it.',
+          fix: 'In variables.tf, declare the map as plain default data:\nvariable "services" {\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend  = "t3.medium"\n    worker   = "t3.micro"\n  }\n}\n(for_each = var.services goes in main.tf later — task 2.)',
+        });
+      }
+
+      // 9b. Keys as a bracket list instead of map entries
+      else if (/=\s*\[/.test(body)) {
+        out.push({
+          severity: "error",
+          message: "The keys are written as a list [frontend, backend, worker] — a map needs key = value pairs, one per tier.",
+          fix: 'Each key gets its own line with its instance type:\nfrontend = "t3.small"\nbackend  = "t3.medium"\nworker   = "t3.micro"',
+        });
+      }
+
+      // 9c. type = map(string) missing, or block arguments comma-joined on one
+      // line ("type = map(string), default = {...}") — invalid HCL style that
+      // the comma-joined one-liner produces.
+      const hasType = /type\s*=\s*map\(string\)/.test(body);
+      const commaJoined = /type\s*=\s*map\(string\)\s*,/.test(body) || /,\s*default\s*=/.test(body);
+      if (!hasType) {
+        out.push({
+          severity: "error",
+          message: 'The variable needs its type: type = map(string) — a map with one instance-type string per tier key.',
+          fix: 'Inside the block:\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend  = "t3.medium"\n    worker   = "t3.micro"\n  }',
+        });
+      } else if (commaJoined) {
+        out.push({
+          severity: "error",
+          message: 'Arguments in a block are separated by LINE BREAKS, not commas — "type = map(string), default = {...}" on one line is invalid HCL.',
+          fix: 'Inside the block, one argument per line:\n  type = map(string)\n  default = {\n    frontend = "t3.small"\n    backend  = "t3.medium"\n    worker   = "t3.micro"\n  }',
+        });
+      }
+
+      // 9d. One of the three tier keys missing
+      const missing = ["frontend", "backend", "worker"].filter((k) => !body.includes(k));
+      if (missing.length > 0 && !/for(each)?/i.test(body)) {
+        out.push({
+          severity: "warning",
+          message: `The map is missing the key "${missing.join('", "')}" — task 1 needs all three tiers.`,
+          fix: `Add inside default = { ... }:\n${missing.map((k) => `${k} = "t3.micro"`).join("\n")}`,
+        });
+      }
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;
