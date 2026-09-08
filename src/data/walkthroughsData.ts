@@ -1360,7 +1360,7 @@ resource "random_password" "db" {
           { label: "storage_encrypted = true", text: "Encrypts the DB storage, snapshots and replicas with the KMS key" },
           { label: "random_password", text: "Generates a strong password INSTEAD of hardcoding one in your code" }
         ],
-        diagramType: "best_practice_matrix",
+        diagramType: "resource_stack",
         commandToTest: "terraform plan"
       },
       {
