@@ -269,12 +269,17 @@ export function calculateCourseProgress(
   errors: LoggedErrorEvent[]
 ): CourseProgressSummary {
   const totalLabs = LABS_DATA.length;
-  const completedLabs = completedLabIds.length;
+  // Dedupe: healed/double-written arrays (pre-race-fix) must not inflate counts
+  const completedLabs = new Set(completedLabIds).size;
   const totalWalkthroughs = WALKTHROUGHS_DATA.length;
-  const completedWalkthroughs = Math.min(totalWalkthroughs, walkthroughProgressIndex + 1);
+  // GOLDEN RULE (same as recommendationOrder): a walkthrough counts as completed
+  // ONLY by its explicit completion flag. Reading position is display state,
+  // never completion — the old `progressIndex + 1` heuristic under/over-counted
+  // the Progress metric (user with 13/17 done showed 59% and 10/10).
+  const completedWalkthroughs = new Set(completedWalkthroughIds).size;
 
   const totalLessons = totalLabs + totalWalkthroughs;
-  const totalCompleted = completedLabs + Math.min(walkthroughProgressIndex, totalWalkthroughs);
+  const totalCompleted = completedLabs + completedWalkthroughs;
   const completionPercentage = Math.round((totalCompleted / totalLessons) * 100);
 
   // Determine next recommended lesson

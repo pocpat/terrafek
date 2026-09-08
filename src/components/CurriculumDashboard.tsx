@@ -249,8 +249,11 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               </div>
               <div className="text-center px-2 border-x border-stone-200">
                 <span className="text-[10.5px] uppercase font-mono text-stone-500 font-bold block">Completed</span>
-                <span className="text-lg font-serif font-bold text-stone-900">
-                  {completedLabIds.length} / {LABS_DATA.length}
+                <span
+                  className="text-lg font-serif font-bold text-stone-900"
+                  title={`${completedLabIds.length} of ${LABS_DATA.length} labs + ${completedWalkthroughIds.length} of ${WALKTHROUGHS_DATA.length} lessons`}
+                >
+                  {completedLabIds.length + completedWalkthroughIds.length} / {LABS_DATA.length + WALKTHROUGHS_DATA.length}
                 </span>
               </div>
               <div className="text-center px-2">

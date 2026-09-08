@@ -4,6 +4,8 @@ import {
   calculateDomainAnalyses,
   calculateCourseProgress,
 } from '../utils/errorAnalyticsEngine';
+import { LABS_DATA } from '../data/labsData';
+import { WALKTHROUGHS_DATA } from '../data/walkthroughsData';
 import { LoggedErrorEvent } from '../types/terraform';
 
 function makeError(domain: LoggedErrorEvent['domain'], resolved = false): LoggedErrorEvent {
@@ -167,5 +169,28 @@ describe('errorAnalyticsEngine', () => {
       const summary = calculateCourseProgress(allLabIds, allWalkthroughIds, [], 6, 2000, []);
       expect(summary.nextRecommendedLesson.type).toBe('walkthrough');
     });
+  });
+});
+
+describe("hero metrics math (user-reported 59% + 10/10 bug)", () => {
+  const ALL_LABS = LABS_DATA.map((l) => l.id);
+  const ALL_WT = WALKTHROUGHS_DATA.map((w) => w.id);
+
+  it("progress counts walkthroughs by completion FLAG, not reading position", () => {
+    // 10 labs done, 3 walkthroughs flagged done, reading position 0 (reset)
+    const r = calculateCourseProgress(ALL_LABS, ALL_WT.slice(0, 3), [], 0, 999, []);
+    expect(r.completionPercentage).toBe(Math.round((13 / 17) * 100)); // 76
+  });
+
+  it("reading position ahead of flags no longer inflates progress", () => {
+    // 10 labs done, only 1 walkthrough flagged, but reader scrolled to wt idx 6
+    const r = calculateCourseProgress(ALL_LABS, [ALL_WT[0]], [], 6, 999, []);
+    expect(r.completionPercentage).toBe(Math.round((11 / 17) * 100)); // 65
+  });
+
+  it("dedupes healed storage arrays (no inflation from double entries)", () => {
+    const dupedLabs = [...ALL_LABS, ...ALL_LABS];
+    const r = calculateCourseProgress(dupedLabs, ALL_WT, [], 6, 999, []);
+    expect(r.completionPercentage).toBe(100);
   });
 });
