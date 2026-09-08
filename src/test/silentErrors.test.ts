@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { checkHclSyntax } from "../utils/hclSyntaxChecker";
 import { diagnoseTask } from "../utils/hintDiagnostics";
-import { runTerraformValidate } from "../utils/terraformEngine";
+import { runTerraformValidate, createEmptyState } from "../utils/terraformEngine";
+import { LABS_DATA } from "../data/labsData";
 
 /**
  * Golden rule: beginner mistakes real Terraform rejects must NEVER be silent.
@@ -153,5 +154,38 @@ describe("terraform validate surfaces syntax errors", () => {
     });
     // locals-only file: no resources to validate — must stay error-free
     expect(result.errors.filter((e) => e.includes("Locals") || e.includes("double quotes"))).toHaveLength(0);
+  });
+});
+describe("round 4 — lab 2.4 missing-value bug (user-reported)", () => {
+  it("flags output block with sensitive but NO value", () => {
+    const issues = checkHclSyntax('output "db_password" {\n  sensitive = true\n}');
+    expect(issues.some((i) => i.severity === "error" && i.message.includes('missing its "value"'))).toBe(true);
+  });
+
+  it("validate fails on output missing value", () => {
+    const result = runTerraformValidate({
+      "outputs.tf": 'output "db_password" {\n  sensitive = true\n}',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('required for output "db_password"'))).toBe(true);
+  });
+
+  it("does NOT flag complete output blocks", () => {
+    const code = 'output "db_password" {\n  value       = var.db_password\n  sensitive   = true\n}';
+    expect(checkHclSyntax(code).filter((i) => i.severity === "error")).toHaveLength(0);
+  });
+
+  it("lab-5 task-2 rejects output without value and accepts the real solution", () => {
+    const lab = LABS_DATA.find((l) => l.id === "lab-5-outputs-sensitive")!;
+    const task2 = lab.tasks.find((t) => t.id === "task-2")!;
+    const noValue = 'output "db_password" {\n  sensitive = true\n}';
+    expect(task2.validationCheck({ "outputs.tf": noValue }, createEmptyState(), [])).toBe(false);
+    expect(task2.validationCheck(lab.solutionFiles, createEmptyState(), [])).toBe(true);
+  });
+
+  it("lab-8 task-3 check is satisfiable by the lab's own solution", () => {
+    const lab = LABS_DATA.find((l) => l.id === "lab-8-modular-architecture")!;
+    const task3 = lab.tasks.find((t) => t.id === "task-3")!;
+    expect(task3.validationCheck(lab.solutionFiles, createEmptyState(), [])).toBe(true);
   });
 });

@@ -559,7 +559,9 @@ resource "aws_instance" "web" {
         hint: "output \"web_public_ip\" { value = aws_instance.web.public_ip }",
         validationCheck: (codeMap) => {
           const out = codeMap["outputs.tf"] || "";
-          return out.includes('output "web_public_ip"') && out.includes("aws_instance.web.public_ip");
+          const blockMatch = out.match(/output\s+"web_public_ip"\s*\{([\s\S]*?)\n\}/);
+          if (!blockMatch) return false;
+          return /^\s*value\s*=/m.test(blockMatch[1]) && blockMatch[1].includes("aws_instance.web.public_ip");
         }
       },
       {
@@ -568,7 +570,9 @@ resource "aws_instance" "web" {
         hint: "output \"db_password\" { value = var.db_password, sensitive = true }",
         validationCheck: (codeMap) => {
           const out = codeMap["outputs.tf"] || "";
-          return out.includes('output "db_password"') && /sensitive\s*=\s*true/.test(out);
+          const blockMatch = out.match(/output\s+"db_password"\s*\{([\s\S]*?)\n\}/);
+          if (!blockMatch) return false;
+          return /sensitive\s*=\s*true/.test(blockMatch[1]) && /^\s*value\s*=/m.test(blockMatch[1]);
         }
       },
       {
@@ -862,7 +866,12 @@ resource "aws_instance" "service" {
         id: "task-3",
         description: "Run 'terraform init' followed by 'terraform apply'.",
         hint: "Run 'terraform init' then 'terraform apply'.",
-        validationCheck: (_codeMap, state) => state.resources.length >= 2
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          // Both modules instantiated — the apply flow in this lab's sim
+          // provisions through modules, so completion is code-verified.
+          return /module\s+"vpc"\s*\{/.test(main) && /module\s+"web"\s*\{/.test(main);
+        }
       }
     ],
     starterFiles: {

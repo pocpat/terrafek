@@ -24,6 +24,12 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
   // case-sensitive: "name" creates a DIFFERENT tag than "Name".
   const CANONICAL_TAG_KEYS = ["Name", "Environment", "ManagedBy"];
   let inTagsBlock = false;
+  // Track output blocks: an output block without a `value` argument is invalid
+  // HCL (real Terraform: "Missing required argument: value"). The lenient
+  // parser accepted it silently and labs passed — catching it here.
+  let inOutputBlock = false;
+  let outputHasValue = false;
+  let outputBlockStartLine = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -37,6 +43,27 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     // Track whether we are inside a `tags = { ... }` block (bookkeeping must
     // happen before the generic "}" skip below, or the flag would stick).
     if (/^tags\s*=\s*\{/.test(line)) inTagsBlock = true;
+
+    // Output block bookkeeping (before the generic "}" skip)
+    if (/^output\s+"/.test(line)) {
+      inOutputBlock = true;
+      outputHasValue = false;
+      outputBlockStartLine = i + 1;
+    }
+    if (line === "}" && inOutputBlock) {
+      inOutputBlock = false;
+      if (!outputHasValue) {
+        issues.push({
+          line: outputBlockStartLine,
+          column: 1,
+          severity: "error",
+          message: `This output block is missing its "value" argument — Terraform wouldn't know what to export.`,
+          eli5: `An output block without "value =" has nothing to export. Real Terraform fails with "Missing required argument: value". Add: value = <what to export>, e.g. value = aws_instance.web.public_ip`,
+          fixHint: `Add "value = ..." inside the output block`,
+        });
+      }
+    }
+    if (inOutputBlock && /^value\s*=/.test(line)) outputHasValue = true;
     if (line === "}") inTagsBlock = false;
 
     // Skip closing braces and bare openers

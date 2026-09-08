@@ -217,6 +217,29 @@ export function runTerraformValidate(codeMap: Record<string, string>): { valid: 
     }
   });
 
+  // Output blocks missing their required "value" argument — real Terraform
+  // fails validate; the lenient parser silently produced an empty output.
+  const outputRegex = /output\s+"([^"]+)"\s*\{([\s\S]*?)\n\}/g;
+  for (const [fileName, content] of Object.entries(codeMap)) {
+    let om: RegExpExecArray | null;
+    outputRegex.lastIndex = 0;
+    while ((om = outputRegex.exec(content)) !== null) {
+      if (!/^value\s*=/m.test(om[2])) {
+        const line = content.slice(0, om.index).split("\n").length;
+        const msg = `Missing required argument: "value" is required for output "${om[1]}".`;
+        errors.push(msg);
+        detailedErrors.push({
+          message: msg,
+          line,
+          fileName,
+          severity: "error",
+          eli5: `Your output "${om[1]}" has no "value = ..." line. An output with nothing to export is invalid — Terraform wouldn't know what to show or hand to other modules.`,
+          fixHint: `Add value = <expression> inside the output block, e.g. value = aws_instance.web.public_ip`,
+        });
+      }
+    }
+  }
+
   // Check for dangling var./local. references — a reference to a variable or
   // local that is never declared (or declared with different casing). Real
   // Terraform fails validate with "Reference to undeclared variable".
