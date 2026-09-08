@@ -137,6 +137,48 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
       "You author the wish (main.tf + variables.tf). Terraform alone maintains the memory (terraform.tfstate) — never hand-edit it; cloud-assigned facts live only there, which is why it is not a duplicate of your code."
   },
   {
+    id: "q11",
+    category: "Files & Secrets",
+    question: "What is the correct HCL to enable an output's log redaction — and what does it NOT do?",
+    options: [
+      'sensitive = "true"; it encrypts the value in the state file',
+      'sensitive = true; it only redacts CLI output — the value stays plaintext in tfstate and the DB needs its own encryption',
+      'encrypt = true; it encrypts the output value at rest',
+      'secret = true; it moves the value into Secrets Manager'
+    ],
+    correctIndex: 1,
+    explanation:
+      'Booleans are unquoted in HCL ("true" is a string error). sensitive = true is display redaction only; data at rest needs storage_encrypted/KMS, and the state file needs an encrypted backend.'
+  },
+  {
+    id: "q12",
+    category: "Files & Secrets",
+    question: "Which resource + argument pair encrypts an RDS database at rest with a key YOU control and can rotate?",
+    options: [
+      "aws_secretsmanager_secret + secret_string",
+      "aws_kms_key + storage_encrypted = true and kms_key_id on the DB",
+      "aws_ssm_parameter + SecureString",
+      "sensitive = true on the db_password output"
+    ],
+    correctIndex: 1,
+    explanation:
+      "Encryption at rest = a KMS key resource plus the encrypted/kms_key_id argument on the storage resource (RDS, EBS, S3). Secrets Manager stores passwords; KMS encrypts data."
+  },
+  {
+    id: "q13",
+    category: "Files & Secrets",
+    question: "What is the production-grade way to give an RDS instance its master password WITHOUT any human typing it into code?",
+    options: [
+      "Put it in a Git-ignored terraform.tfvars file",
+      "generate a random string in your shell and paste it into variables.tf",
+      "manage_master_user_password = true — AWS Secrets Manager creates and rotates it",
+      "Base64-encode the password in main.tf"
+    ],
+    correctIndex: 2,
+    explanation:
+      "manage_master_user_password = true delegates creation and rotation to AWS Secrets Manager. random_password is the good DIY option; tfvars (even ignored) still lands plaintext in tfstate and on your disk."
+  },
+  {
     id: "q6",
     category: "Security",
     question: "What does setting `sensitive = true` on an output block achieve?",

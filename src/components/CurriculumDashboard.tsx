@@ -411,7 +411,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center space-x-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                                 #{item.orderNo}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
@@ -466,7 +466,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center space-x-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                                 #{item.orderNo}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
@@ -556,7 +556,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center space-x-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                                 #{item.orderNo}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
@@ -610,7 +610,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center space-x-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                                 #{item.orderNo}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
@@ -698,7 +698,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center space-x-1.5">
-                            <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                            <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                               #{item.orderNo}
                             </span>
                             <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
@@ -746,7 +746,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="flex items-center space-x-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of 17 in the course sequence`}>
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
                                 #{item.orderNo}
                               </span>
                               <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">

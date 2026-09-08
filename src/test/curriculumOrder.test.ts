@@ -20,9 +20,9 @@ describe("curriculum order integrity", () => {
     // no duplicates
     const dupes = [...seen.entries()].filter(([, n]) => n > 1);
     expect(dupes).toEqual([]);
-    // full coverage: 10 labs + 7 walkthroughs = 17
-    expect(CURRICULUM_ORDER.length).toBe(17);
-    expect(seen.size).toBe(17);
+    // full coverage: 10 labs + 8 walkthroughs = 18
+    expect(CURRICULUM_ORDER.length).toBe(18);
+    expect(seen.size).toBe(18);
   });
 
   it("every index resolves to a real lab / walkthrough (no dangling references)", () => {
@@ -40,7 +40,7 @@ describe("curriculum order integrity", () => {
   it("phases are contiguous blocks: 6 + 5 + 6 items", () => {
     const p = CURRICULUM_ORDER.map((c) => c.phase);
     expect(p.filter((x) => x === 1)).toHaveLength(6);
-    expect(p.filter((x) => x === 2)).toHaveLength(5);
+    expect(p.filter((x) => x === 2)).toHaveLength(6);
     expect(p.filter((x) => x === 3)).toHaveLength(6);
     // contiguous: no phase reappears after the next one starts
     let last = 0;

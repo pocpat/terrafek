@@ -57,6 +57,7 @@ export const CURRICULUM_ORDER: Array<{
   { phase: 2, type: "lab",         index: 3, category: "Networking & Graph", estimatedMinutes: 12 },
   { phase: 2, type: "walkthrough", index: 6, category: "DAG Graph", estimatedMinutes: 6 },
   { phase: 2, type: "lab",         index: 4, category: "Variables & State", estimatedMinutes: 10 },
+  { phase: 2, type: "walkthrough", index: 7, category: "Secrets & Encryption", estimatedMinutes: 8 },
 
   // ── Phase 3: Modular Infrastructure & Production Multi-Tier Cloud ──
   { phase: 3, type: "walkthrough", index: 5, category: "Modules", estimatedMinutes: 7 },

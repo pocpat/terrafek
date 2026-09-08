@@ -1233,5 +1233,187 @@ resource "aws_security_group_rule" "web_to_db" {
         commandToTest: "terraform plan"
       }
     ]
+  },
+  {
+    id: "concept-secrets-at-rest",
+    conceptId: "secrets-at-rest",
+    title: "Protecting Secrets at Rest",
+    subtitle: "sensitive = true hides output — here is what actually encrypts your data",
+    category: "State & Lifecycle",
+    estimatedMinutes: 8,
+    icon: "Lock",
+    summary:
+      "sensitive = true only redacts terminal output. Real protection means: encryption at rest for databases and disks (KMS), secrets managed by a dedicated vault (Secrets Manager / SSM) instead of tfvars, and an encrypted remote backend for the state file.",
+    mainObjectives: [
+      "Understand exactly what sensitive = true does and does NOT do",
+      "Encrypt data at rest: KMS keys + encrypted = true on EBS/RDS",
+      "Move real secrets out of tfvars into Secrets Manager or SSM Parameter Store",
+      "Secure the state file: encrypted remote backend — the last place secrets hide"
+    ],
+    starterFiles: {
+      "main.tf": `resource "aws_db_instance" "main" {
+  identifier     = "prod-postgres"
+  engine         = "postgres"
+  instance_class = "db.t3.micro"
+  username       = "dbadmin"
+  password       = var.db_password
+
+  # UNENCRYPTED — a real problem in production:
+  storage_encrypted = false
+}
+
+variable "db_password" {
+  type    = string
+  default = "SuperSecret123"  # hardcoded secret in code — also a problem!
+}`
+    },
+    steps: [
+      {
+        id: "secrets-1",
+        stepNumber: 1,
+        title: "What sensitive = true Actually Does",
+        subtitle: "Redaction in logs — nothing more",
+        explanation:
+          "sensitive = true is a DISPLAY setting. It replaces the value with <sensitive> in 'terraform plan'/'apply' output, CLI logs, and 'terraform output' — so a colleague watching your terminal doesn't see the password.\n\nWhat it does NOT do:\n1. It does NOT encrypt anything. The value sits in terraform.tfstate in plaintext.\n2. It does NOT encrypt the data inside AWS — an RDS instance without storage_encrypted stores everything readable at rest.\n3. It does NOT validate the value: 'sensitive = \"true\"' (quoted) is even a type error — booleans in HCL are bare true/false, never quoted.\n\nRule of thumb: sensitive = true protects eyes, not data. For data you need encryption at rest.",
+        objectives: [
+          "Distinguish log redaction from encryption at rest",
+          "Recognize that quoted booleans are a type error: sensitive = true, not sensitive = \"true\"",
+          "Locate the two places secrets live after apply: the cloud resource and the state file"
+        ],
+        keyRules: [
+          "Booleans in HCL are unquoted: sensitive = true. Quoted \"true\" is a string — real Terraform rejects it.",
+          "sensitive = true = log redaction only.",
+          "Data at rest needs its own encryption (KMS, storage_encrypted)."
+        ],
+        codeSnippet: `# Redaction only — the value is STILL in tfstate + still readable in the DB:
+output "db_password" {
+  value     = aws_db_instance.main.password
+  sensitive = true        # hides it in CLI logs
+}
+
+# This does NOTHING for data at rest:
+storage_encrypted = false   # ← the actual data is readable on disk
+
+# Also note the type trap:
+#   sensitive = "true"   ERROR: a string, not a boolean
+#   sensitive = true     CORRECT (no quotes)`,
+        fileName: "main.tf",
+        codeHighlights: [
+          { label: 'sensitive = "true"', text: "Quoted boolean — a string, real Terraform rejects it" },
+          { label: "storage_encrypted = false", text: "sensitive = true does nothing for this — the DB disk is readable" }
+        ],
+        diagramType: "best_practice_matrix",
+        commandToTest: "terraform plan",
+        quickCheck: {
+          question: 'An output has sensitive = true. Where can the password still be read?',
+          options: [
+            "Nowhere — sensitive = true encrypts it",
+            "In terraform.tfstate (plaintext) and inside the database itself if storage is not encrypted",
+            "Only in the .tfvars file",
+            "In the AWS console only"
+          ],
+          correctIndex: 1,
+          explanation:
+            "sensitive = true is log redaction. The value remains plaintext in terraform.tfstate, and the DB itself is only as safe as its storage encryption."
+        }
+      },
+      {
+        id: "secrets-2",
+        stepNumber: 2,
+        title: "Encrypting the Data Itself",
+        subtitle: "KMS keys + encrypted storage on DBs and disks",
+        explanation:
+          "Encryption AT REST is a property of the resource that stores the data, set in your HCL with a KMS (Key Management Service) key:\n\n1) Declare a KMS key: resource \"aws_kms_key\" \"db\" { description = ..., enable_key_rotation = true }.\n2) Turn encryption on and reference the key: storage_encrypted = true and kms_key_id = aws_kms_key.db.arn on the RDS instance.\n3) From that moment AWS encrypts the database storage, snapshots, and replicas with that key — reading the raw disk without the key reveals nothing.\n\nThe same pattern protects EBS volumes (encrypted = true), S3 buckets (server-side encryption configuration), and EFS. The pattern is always: a KMS key resource + the encrypted/kms_key_id argument on the resource that stores data.",
+        objectives: [
+          "Declare an aws_kms_key and reference it via kms_key_id",
+          "Enable storage_encrypted on RDS and encrypted on EBS volumes",
+          "Understand that encryption at rest is a RESOURCE property, not a Terraform setting"
+        ],
+        keyRules: [
+          "aws_kms_key + kms_key_id = the encryption-at-rest pattern for DBs, disks, buckets.",
+          "enable_key_rotation = true rotates the key yearly — free, automatic, best practice.",
+          "Snapshots inherit the encryption of the source storage."
+        ],
+        codeSnippet: `# 1. The key that does the encrypting
+resource "aws_kms_key" "db" {
+  description         = "Production DB encryption key"
+  enable_key_rotation = true
+}
+
+# 2. The storage that uses it
+resource "aws_db_instance" "main" {
+  identifier        = "prod-postgres"
+  engine            = "postgres"
+  instance_class    = "db.t3.micro"
+  username          = "dbadmin"
+  password          = random_password.db.result
+  storage_encrypted = true                    # ← NOW the data is encrypted at rest
+  kms_key_id        = aws_kms_key.db.arn      # ← with YOUR key, rotatable
+}
+
+resource "random_password" "db" {
+  length  = 24
+  special = true
+}`,
+        fileName: "main.tf",
+        codeHighlights: [
+          { label: "storage_encrypted = true", text: "Encrypts the DB storage, snapshots and replicas with the KMS key" },
+          { label: "random_password", text: "Generates a strong password INSTEAD of hardcoding one in your code" }
+        ],
+        diagramType: "best_practice_matrix",
+        commandToTest: "terraform plan"
+      },
+      {
+        id: "secrets-3",
+        stepNumber: 3,
+        title: "Where Secrets Should Live Instead of tfvars",
+        subtitle: "Secrets Manager, SSM Parameter Store, random_password",
+        explanation:
+          "The default flow (variable + tfvars) puts the real password in a file on your disk and later in plaintext inside terraform.tfstate. Production-grade options:\n\n1) random_password resource — Terraform GENERATES the secret; no human ever types it. It lands in state (still needs backend encryption), but never in Git or your shell history.\n2) AWS Secrets Manager — store the secret there (secret_string), let RDS consume it directly (manage_master_user_password = true — AWS creates and rotates the password, your code never holds it).\n3) SSM Parameter Store (SecureString) — cheaper KMS-backed storage; reference via data \"aws_ssm_parameter\".\n\nFor the state file itself: remote backend (S3) with encrypt = true and a DynamoDB lock table — covered in the Remote State lesson. That closes the last plaintext location.",
+        objectives: [
+          "Generate secrets with random_password instead of typing them",
+          "Let AWS manage rotation with Secrets Manager (manage_master_user_password)",
+          "Understand SSM Parameter Store as the budget option"
+        ],
+        keyRules: [
+          "Never hardcode secrets in .tf code or committed tfvars — generate or reference them.",
+          "Secrets Manager can create AND rotate DB passwords: manage_master_user_password = true.",
+          "The state file stays the weakest link: remote backend with encrypt = true is mandatory."
+        ],
+        codeSnippet: `# Option A — Terraform generates the password (never typed by a human)
+resource "random_password" "db" {
+  length  = 24
+  special = true
+}
+
+# Option B — AWS creates AND rotates the password; your code never sees it
+resource "aws_db_instance" "main" {
+  identifier                 = "prod-postgres"
+  engine                     = "postgres"
+  instance_class             = "db.t3.micro"
+  username                   = "dbadmin"
+  manage_master_user_password = true      # ← Secrets Manager handles it
+  storage_encrypted          = true
+  kms_key_id                 = aws_kms_key.db.arn
+}
+
+# Remote state: the last plaintext location — encrypted
+terraform {
+  backend "s3" {
+    bucket         = "company-tf-state-prod"
+    key            = "prod/terraform.tfstate"
+    encrypt        = true              # ← state at rest, encrypted
+    dynamodb_table = "terraform-state-lock"
+  }
+}`,
+        fileName: "main.tf",
+        codeHighlights: [
+          { label: "manage_master_user_password = true", text: "AWS Secrets Manager creates and rotates the password — your code never contains it" },
+          { label: "encrypt = true", text: "Encrypts the state file at rest in the S3 backend" }
+        ],
+        diagramType: "remote_backend",
+        commandToTest: "terraform state list"
+      }
+    ]
   }
 ];

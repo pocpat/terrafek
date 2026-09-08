@@ -179,13 +179,13 @@ describe("hero metrics math (user-reported 59% + 10/10 bug)", () => {
   it("progress counts walkthroughs by completion FLAG, not reading position", () => {
     // 10 labs done, 3 walkthroughs flagged done, reading position 0 (reset)
     const r = calculateCourseProgress(ALL_LABS, ALL_WT.slice(0, 3), [], 0, 999, []);
-    expect(r.completionPercentage).toBe(Math.round((13 / 17) * 100)); // 76
+    expect(r.completionPercentage).toBe(Math.round((13 / 18) * 100)); // 72
   });
 
   it("reading position ahead of flags no longer inflates progress", () => {
     // 10 labs done, only 1 walkthrough flagged, but reader scrolled to wt idx 6
     const r = calculateCourseProgress(ALL_LABS, [ALL_WT[0]], [], 6, 999, []);
-    expect(r.completionPercentage).toBe(Math.round((11 / 17) * 100)); // 65
+    expect(r.completionPercentage).toBe(Math.round((11 / 18) * 100)); // 61
   });
 
   it("dedupes healed storage arrays (no inflation from double entries)", () => {
