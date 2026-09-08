@@ -268,7 +268,7 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs font-sans">
-      <div className="bg-white border border-stone-200 rounded-3xl w-full max-w-2xl h-[600px] flex flex-col shadow-2xl overflow-hidden text-stone-900">
+      <div className="bg-white border border-stone-200 rounded-3xl w-full max-w-2xl md:max-w-3xl h-[600px] flex flex-col shadow-2xl overflow-hidden text-stone-900">
         {/* Header */}
         <div className="p-4 bg-[#FAFAFA] border-b border-stone-200 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
@@ -358,15 +358,39 @@ export const AiMentorModal: React.FC<AiMentorModalProps> = ({
                   </div>
 
                   <div
-                    className={`p-3.5 rounded-2xl max-w-[85%] leading-relaxed shadow-xs ${
+                    className={`p-3.5 rounded-2xl max-w-[92%] md:max-w-[90%] min-w-0 leading-relaxed shadow-xs ${
                       m.role === "user"
-                        ? "bg-stone-900 text-white"
+                        ? "bg-stone-900 text-white max-w-[85%]"
                         : "bg-white border border-stone-200 text-stone-800"
                     }`}
                   >
                     {m.role === "assistant" ? (
-                      <div className="markdown-body space-y-2">
-                        <ReactMarkdown>{m.text}</ReactMarkdown>
+                      <div className="markdown-body space-y-2 min-w-0">
+                        <ReactMarkdown
+                          components={{
+                            // Tables: compact font + horizontal scroll inside the bubble
+                            table: ({ children }) => (
+                              <div className="overflow-x-auto custom-scrollbar -mx-1 px-1">
+                                <table className="w-full text-[10px] font-sans border-collapse [&_td]:border [&_td]:border-stone-200 [&_td]:px-1.5 [&_td]:py-1 [&_th]:border [&_th]:border-stone-300 [&_th]:bg-stone-100 [&_th]:px-1.5 [&_th]:py-1 [&_th]:text-left [&_th]:font-bold">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            // Code blocks: smaller font + horizontal scroll (no wrapping mess)
+                            pre: ({ children }) => (
+                              <pre className="bg-stone-900 text-stone-100 rounded-lg p-2 overflow-x-auto custom-scrollbar text-[10.5px] leading-relaxed">
+                                {children}
+                              </pre>
+                            ),
+                            code: ({ children }) => (
+                              <code className="font-mono text-[10.5px] bg-stone-100 text-stone-800 px-1 py-0.5 rounded">{children}</code>
+                            ),
+                            // Wide ASCII graphs/diagrams: scroll horizontally, keep monospace
+                            p: ({ children }) => <p className="break-words">{children}</p>,
+                          }}
+                        >
+                          {m.text}
+                        </ReactMarkdown>
                       </div>
                     ) : (
                       <span>{m.text}</span>
