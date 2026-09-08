@@ -1323,7 +1323,7 @@ storage_encrypted = false   # ← the actual data is readable on disk
         title: "Encrypting the Data Itself",
         subtitle: "KMS keys + encrypted storage on DBs and disks",
         explanation:
-          "Encryption AT REST is a property of the resource that stores the data, set in your HCL with a KMS (Key Management Service) key:\n\n1) Declare a KMS key: resource \"aws_kms_key\" \"db\" { description = ..., enable_key_rotation = true }.\n2) Turn encryption on and reference the key: storage_encrypted = true and kms_key_id = aws_kms_key.db.arn on the RDS instance.\n3) From that moment AWS encrypts the database storage, snapshots, and replicas with that key — reading the raw disk without the key reveals nothing.\n\nThe same pattern protects EBS volumes (encrypted = true), S3 buckets (server-side encryption configuration), and EFS. The pattern is always: a KMS key resource + the encrypted/kms_key_id argument on the resource that stores data.",
+          "First, the big misconception: there is NO Terraform encryption function. Terraform has no encrypt() to call — and that is by design. Terraform is the ARCHITECT: it only writes instructions. The one actually encrypting is AWS itself, with its own machinery (KMS), running 24/7 on the storage.\n\nYour HCL just flips AWS's switches:\n\n1) Declare a KMS key: resource \"aws_kms_key\" \"db\" { description = ..., enable_key_rotation = true }.\n2) Turn encryption on and reference the key: storage_encrypted = true and kms_key_id = aws_kms_key.db.arn on the RDS instance.\n3) From that moment AWS encrypts every page of the DB storage, snapshots, and replicas with that key — continuously, automatically, at rest. Reading the raw disk without the key reveals nothing.\n\nThe same pattern protects EBS volumes (encrypted = true), S3 buckets (server-side encryption configuration), and EFS. Always: a KMS key resource + the encrypted/kms_key_id argument on the resource that stores data. Terraform never sees the plaintext data — it only wires the pipes.",
         objectives: [
           "Declare an aws_kms_key and reference it via kms_key_id",
           "Enable storage_encrypted on RDS and encrypted on EBS volumes",
@@ -1361,7 +1361,19 @@ resource "random_password" "db" {
           { label: "random_password", text: "Generates a strong password INSTEAD of hardcoding one in your code" }
         ],
         diagramType: "resource_stack",
-        commandToTest: "terraform plan"
+        commandToTest: "terraform plan",
+        quickCheck: {
+          question: "Which Terraform function encrypts the RDS storage at rest?",
+          options: [
+            "encrypt(data, kms_key) — a built-in Terraform function",
+            "None — Terraform has no encryption function; storage_encrypted = true + kms_key_id tell AWS to do the encrypting",
+            "base64encode() — it converts data to unreadable text",
+            "terraform encrypt -key kms_db"
+          ],
+          correctIndex: 1,
+          explanation:
+            "Terraform has no encrypt() by design. It only declares resources: the KMS key + storage_encrypted flag tell AWS to encrypt. AWS performs the actual encryption continuously at rest."
+        }
       },
       {
         id: "secrets-3",
