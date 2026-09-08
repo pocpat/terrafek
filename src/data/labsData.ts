@@ -755,7 +755,7 @@ resource "aws_instance" "app" {
         hint: "The three tiers are map KEYS; each key maps to that tier's instance size:\n\nvariable \"services\" {\n  type = map(string)\n  default = {\n    frontend = \"t3.small\"\n    backend  = \"t3.medium\"\n    worker   = \"t3.micro\"\n  }\n}\n\nOne line per tier — the key name (frontend/backend/worker) is up to the map, the value is that tier's instance type.",
         validationCheck: (codeMap) => {
           const v = codeMap["variables.tf"] || "";
-          return /variable\s+"services"/.test(v) && /type\s*=\s*map\(string\)/.test(v) &&
+          return /variable\s+"services"/.test(v) && /type\s*=\s*map\s*\(\s*string\s*\)/.test(v) &&
                  v.includes("frontend") && v.includes("backend") && v.includes("worker");
         }
       },

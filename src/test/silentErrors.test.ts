@@ -237,3 +237,18 @@ describe("round 5 — lab 4.1 task-1 services map (user-reported)", () => {
     expect(task1.validationCheck({ "variables.tf": good }, createEmptyState(), [])).toBe(true);
   });
 });
+
+describe("round 6 — 'map (string)' with space (user-reported)", () => {
+  const USER_EXACT = '# Lab 4.1: Scaling with Count & For_Each\n# TODO Task 1: Declare the "services" variable as a map of instance types\n#   with one entry per tier (three tiers total — see your instruction list).\n\nvariable "services" {\ntype = map (string)\ndefault = {\n frontend = "t3.small"\n backend = "t3.medium"\n worker = "t3.micro"\n}}';
+
+  it("task-1 accepts 'map (string)' with a space — real Terraform does", () => {
+    const lab = LABS_DATA.find((l) => l.id === "lab-7-count-and-for-each")!;
+    const task1 = lab.tasks.find((t) => t.id === "task-1")!;
+    expect(task1.validationCheck({ "variables.tf": USER_EXACT }, createEmptyState(), [])).toBe(true);
+  });
+
+  it("hint engine does not false-positive on the spaced form", () => {
+    const out = diagnoseTask({ files: { "variables.tf": USER_EXACT }, labId: "lab-7-count-and-for-each" });
+    expect(out.filter((d) => d.message.includes("needs its type") || d.message.includes("LINE BREAKS")).length).toBe(0);
+  });
+});

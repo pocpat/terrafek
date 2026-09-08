@@ -196,8 +196,8 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
       // 9c. type = map(string) missing, or block arguments comma-joined on one
       // line ("type = map(string), default = {...}") — invalid HCL style that
       // the comma-joined one-liner produces.
-      const hasType = /type\s*=\s*map\(string\)/.test(body);
-      const commaJoined = /type\s*=\s*map\(string\)\s*,/.test(body) || /,\s*default\s*=/.test(body);
+      const hasType = /type\s*=\s*map\s*\(\s*string\s*\)/.test(body);
+      const commaJoined = /type\s*=\s*map\s*\(\s*string\s*\)\s*,/.test(body) || /,\s*default\s*=/.test(body);
       if (!hasType) {
         out.push({
           severity: "error",
