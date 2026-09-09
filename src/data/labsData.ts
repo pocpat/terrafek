@@ -1163,7 +1163,7 @@ resource "aws_s3_bucket" "app_data" {
       {
         id: "task-6",
         description: "Compute tier & launch: declare the app instance 'app_cluster' placed in the PRIVATE subnet (subnet_id = aws_subnet.private_1.id — a reference, the instance is its own separate block), then run 'terraform apply' to provision the full topology.",
-        hint: "resource \"aws_instance\" \"app_cluster\" { subnet_id = aws_subnet.private_1.id ... } — then type 'terraform apply' in the terminal.",
+        hint: "Every EC2 instance needs TWO required arguments — ami (the operating-system image ID) and instance_type (the size) — plus the subnet wiring:\n\nresource \"aws_instance\" \"app_cluster\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n  subnet_id     = aws_subnet.private_1.id\n\n  tags = {\n    Name = \"app-cluster\"\n  }\n}\n\n(ami = the OS image ID from AWS; instance_type = t3.micro/t3.medium/... the hardware size. Then run 'terraform apply'.)",
         validationCheck: (codeMap, state) => {
           const main = codeMap["main.tf"] || "";
           const wired = /resource\s+"aws_instance"\s+"app_cluster"\s*\{[\s\S]*?subnet_id\s*=\s*aws_subnet\.private_1\.id/.test(main);

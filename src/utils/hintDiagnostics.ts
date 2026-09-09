@@ -327,6 +327,21 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 13. aws_instance missing required arguments (ami, instance_type)
+  const instBlocks = [...main.matchAll(/resource\s+"aws_instance"\s+"([^"]+)"\s*\{([\s\S]*?)\n\}/g)];
+  for (const [, instName, body] of instBlocks) {
+    const missing: string[] = [];
+    if (!/^\s*ami\s*=/m.test(body)) missing.push("ami");
+    if (!/^\s*instance_type\s*=/m.test(body)) missing.push("instance_type");
+    if (missing.length > 0) {
+      out.push({
+        severity: "error",
+        message: `aws_instance "${instName}" is missing ${missing.map((m) => `"${m}"`).join(" and ")} — every EC2 needs both.`,
+        fix: `Add inside the resource block:\n  ami           = "ami-0c55b159cbfafe1f0"\n  instance_type = "t3.medium"`,
+      });
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;

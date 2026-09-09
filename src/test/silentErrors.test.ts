@@ -371,3 +371,27 @@ describe("round 9 — lab #18 task-4 aws_lb (user-reported)", () => {
     expect(out.some((d) => d.message.includes('"security_groups"'))).toBe(true);
   });
 });
+
+describe("round 10 — lab #18 task-6 'how do I know what to write' (user-reported)", () => {
+  const lab = LABS_DATA.find((l) => l.id === "lab-10-production-hero")!;
+  const task6 = lab.tasks.find((t) => t.id === "task-6")!;
+
+  it("task-6 hint now names ami + instance_type explicitly", () => {
+    expect(task6.hint.includes("ami")).toBe(true);
+    expect(task6.hint.includes("instance_type")).toBe(true);
+    expect(task6.hint.includes("Every EC2 instance needs TWO required arguments")).toBe(true);
+  });
+
+  it("hint engine names missing ami/instance_type with the fix lines", () => {
+    const user = 'resource "aws_instance" "app_cluster"{\nsubnet_id = [aws_subnet.private_1.id]\n}';
+    const out = diagnoseTask({ files: { "main.tf": user }, labId: "lab-10-production-hero" });
+    expect(out.some((d) => d.message.includes('missing "ami" and "instance_type"'))).toBe(true);
+    expect(out.some((d) => d.fix.includes('ami           = "ami-0c55b159cbfafe1f0"'))).toBe(true);
+  });
+
+  it("no false positive on a complete instance", () => {
+    const good = 'resource "aws_instance" "app_cluster" {\n  ami = "ami-0c55b159cbfafe1f0"\n  instance_type = "t3.medium"\n  subnet_id = aws_subnet.private_1.id\n}';
+    const out = diagnoseTask({ files: { "main.tf": good }, labId: "lab-10-production-hero" });
+    expect(out.filter((d) => d.message.includes("is missing")).length).toBe(0);
+  });
+});
