@@ -312,7 +312,7 @@ export default function App() {
           {isLeftPanelCollapsed ? (
             <button
               onClick={() => setIsLeftPanelCollapsed(false)}
-              className="absolute top-2 left-0 z-30 px-1.5 py-2.5 rounded-r-lg bg-stone-900 hover:bg-stone-800 text-white text-[10.5px] font-bold font-sans shadow-md flex flex-col items-center gap-1.5 cursor-pointer"
+              className="absolute top-24 left-0 z-30 px-1.5 py-2.5 rounded-r-lg bg-stone-900 hover:bg-stone-800 text-white text-[10.5px] font-bold font-sans shadow-md flex flex-col items-center gap-1.5 cursor-pointer"
               title="Show the Guide / Instructions panel"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -520,7 +520,7 @@ export default function App() {
               /* Collapsed: a clearly LABELED vertical tab — impossible to miss */
               <button
                 onClick={() => setIsLeftPanelCollapsed(false)}
-                className="absolute top-2 left-0 z-30 px-1.5 py-2.5 rounded-r-lg bg-stone-900 hover:bg-stone-800 text-white text-[10.5px] font-bold font-sans shadow-md flex flex-col items-center gap-1.5 cursor-pointer"
+                className="absolute top-24 left-0 z-30 px-1.5 py-2.5 rounded-r-lg bg-stone-900 hover:bg-stone-800 text-white text-[10.5px] font-bold font-sans shadow-md flex flex-col items-center gap-1.5 cursor-pointer"
                 title="Show the Guide / Instructions panel"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
