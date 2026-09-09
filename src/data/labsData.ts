@@ -1006,8 +1006,8 @@ resource "aws_instance" "web" {
     tasks: [
       {
         id: "task-1",
-        description: "In the 'terraform' block, configure the S3 backend: bucket 'company-tf-state-prod' with key 'global/s3/terraform.tfstate' in region 'us-east-1'.",
-        hint: "The backend block needs three parts — where the state lives and which file inside the bucket:\n\nterraform {\n  backend \"s3\" {\n    bucket = \"company-tf-state-prod\"\n    key    = \"global/s3/terraform.tfstate\"\n    region = \"us-east-1\"\n  }\n}\n\n(bucket = which bucket stores the state; key = the file path INSIDE the bucket; region = where that bucket lives. State locking gets its own task next.)",
+        description: "In the 'terraform' block, configure the S3 backend for this lab: bucket 'company-tf-state-prod', key 'global/s3/terraform.tfstate' (the key is just a file path YOU choose inside the bucket — your team picked this one), region 'us-east-1'.",
+        hint: "The backend block needs three parts — where the state lives and which file inside the bucket:\n\nterraform {\n  backend \"s3\" {\n    bucket = \"company-tf-state-prod\"\n    key    = \"global/s3/terraform.tfstate\"\n    region = \"us-east-1\"\n  }\n}\n\nThe key is NOT something you look up — it's a path YOU invent, like a filename. Convention: <project>/<app>/<environment>.tfstate. This lab's team chose global/s3/terraform.tfstate, so use exactly that. (bucket = which bucket; region = where it lives. Locking: next task.)",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           const backend = main.match(/backend\s+"s3"\s*\{([\s\S]*?)\n\s*\}/);

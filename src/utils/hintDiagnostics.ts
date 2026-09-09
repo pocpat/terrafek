@@ -233,14 +233,14 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
         out.push({
           severity: "warning",
           message: 'The terraform block exists but has no backend "s3" { ... } inside it — task 1 needs the S3 backend declared.',
-          fix: 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n  }\n}',
+          fix: 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "global/s3/terraform.tfstate"\n    region = "us-east-1"\n  }\n}',
         });
       }
     } else {
       const b = backendBlock[1];
       const args: [RegExp, string, string][] = [
         [/bucket/, 'bucket = "company-tf-state-prod"', "bucket — which S3 bucket stores the state file"],
-        [/key/, 'key = "global/s3/terraform.tfstate"', "key — the file path INSIDE the bucket"],
+        [/key/, 'key = "global/s3/terraform.tfstate"', "key — the state file's path INSIDE the bucket; the team invents this path (convention: <project>/<app>/<env>.tfstate)"],
         [/region/, 'region = "us-east-1"', "region — where that bucket lives"],
       ];
       for (const [re, fix, what] of args) {
