@@ -1006,15 +1006,15 @@ resource "aws_instance" "web" {
     tasks: [
       {
         id: "task-1",
-        description: "In the 'terraform' block, configure the S3 backend: bucket 'company-tf-state-prod' with key 'prod/app.tfstate' in region 'us-east-1'.",
-        hint: "The backend block needs three parts — where the state lives and which file inside the bucket:\n\nterraform {\n  backend \"s3\" {\n    bucket = \"company-tf-state-prod\"\n    key    = \"prod/app.tfstate\"\n    region = \"us-east-1\"\n  }\n}\n\n(bucket = which bucket stores the state; key = the file path INSIDE the bucket; region = where that bucket lives. State locking gets its own task next.)",
+        description: "In the 'terraform' block, configure the S3 backend: bucket 'company-tf-state-prod' with key 'global/s3/terraform.tfstate' in region 'us-east-1'.",
+        hint: "The backend block needs three parts — where the state lives and which file inside the bucket:\n\nterraform {\n  backend \"s3\" {\n    bucket = \"company-tf-state-prod\"\n    key    = \"global/s3/terraform.tfstate\"\n    region = \"us-east-1\"\n  }\n}\n\n(bucket = which bucket stores the state; key = the file path INSIDE the bucket; region = where that bucket lives. State locking gets its own task next.)",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           const backend = main.match(/backend\s+"s3"\s*\{([\s\S]*?)\n\s*\}/);
           if (!backend) return false;
           const b = backend[1];
           return /bucket\s*=\s*"company-tf-state-prod"/.test(b) &&
-                 /key\s*=\s*"prod\/app\.tfstate"/.test(b) &&
+                 /key\s*=\s*"global\/s3\/terraform\.tfstate"/.test(b) &&
                  /region\s*=\s*"us-east-1"/.test(b);
         }
       },

@@ -269,15 +269,15 @@ describe("round 7 — lab #17 backend s3 (user-reported hint/task mismatch)", ()
   });
 
   it("task-1 check requires bucket + key + region inside the backend block", () => {
-    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n  }\n}';
+    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "global/s3/terraform.tfstate"\n    region = "us-east-1"\n  }\n}';
     const onlyBucket = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n  }\n}';
     expect(task1.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
     expect(task1.validationCheck({ "main.tf": onlyBucket }, createEmptyState(), [])).toBe(false);
   });
 
   it("task-2 requires the exact lock table name, not just any dynamodb_table", () => {
-    const wrongName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "tf-locks"\n  }\n}';
-    const rightName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
+    const wrongName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "global/s3/terraform.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "tf-locks"\n  }\n}';
+    const rightName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "global/s3/terraform.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
     expect(task2.validationCheck({ "main.tf": wrongName }, createEmptyState(), [])).toBe(false);
     expect(task2.validationCheck({ "main.tf": rightName }, createEmptyState(), [])).toBe(true);
   });
@@ -300,7 +300,7 @@ describe("round 7 — lab #17 backend s3 (user-reported hint/task mismatch)", ()
   });
 
   it("both tasks accept the complete correct backend", () => {
-    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
+    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "global/s3/terraform.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
     expect(task1.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
     expect(task2.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
   });

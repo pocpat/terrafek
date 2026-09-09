@@ -240,7 +240,7 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
       const b = backendBlock[1];
       const args: [RegExp, string, string][] = [
         [/bucket/, 'bucket = "company-tf-state-prod"', "bucket — which S3 bucket stores the state file"],
-        [/key/, 'key = "prod/app.tfstate"', "key — the file path INSIDE the bucket"],
+        [/key/, 'key = "global/s3/terraform.tfstate"', "key — the file path INSIDE the bucket"],
         [/region/, 'region = "us-east-1"', "region — where that bucket lives"],
       ];
       for (const [re, fix, what] of args) {
