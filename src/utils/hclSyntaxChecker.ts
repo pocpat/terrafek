@@ -96,9 +96,11 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     // --- Check 0c: Unknown aws_* resource type (likely typo) ---
     // resource "aws_instence" — shaped like a real type but not one Terraform
     // knows. The parser drops the block silently and validate passes.
-    const awsTypeMatch = line.match(/^resource\s+"(aws_[a-z0-9_]+)"\s+"[a-zA-Z0-9_-]+"/);
+    const awsTypeMatch = line.match(/^resource\s+"(aws[_-][a-z0-9_-]+)"\s+"[a-zA-Z0-9_-]+"/);
     if (awsTypeMatch) {
-      const type = awsTypeMatch[1];
+      // normalize dash typos (aws-vpc → aws_vpc) before matching known types
+      const type = awsTypeMatch[1].replace(/-/g, "_");
+      const typed = awsTypeMatch[1];
       // Common canonical types taught across the course
       const KNOWN_AWS_TYPES = [
         "aws_s3_bucket", "aws_instance", "aws_vpc", "aws_subnet", "aws_security_group",
@@ -109,7 +111,10 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
         "aws_s3_bucket_versioning", "aws_s3_bucket_server_side_encryption_configuration",
         "aws_ecr_repository", "aws_lambda_function", "aws_cloudwatch_log_group",
       ];
-      if (!KNOWN_AWS_TYPES.includes(type)) {
+      // raw token decides "known vs unknown": aws-vpc is invalid HCL even
+      // though its underscore twin aws_vpc is a real type — dashes are not
+      // legal in type names, so the dash typo must be flagged.
+      if (!KNOWN_AWS_TYPES.includes(awsTypeMatch[1])) {
         // Find the closest known type by simple distance (typo detection)
         let closest: string | undefined = undefined;
         for (const k of KNOWN_AWS_TYPES) {
@@ -121,11 +126,11 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
         }
         issues.push({
           line: i + 1,
-          column: rawLine.indexOf(`"${type}"`) + 2,
+          column: rawLine.indexOf(`"${typed}"`) + 2,
           severity: "error",
-          message: `"${type}" is not a known AWS resource type.${closest ? ` Did you mean "${closest}"?` : ""}`,
-          eli5: `Terraform doesn't know a resource type called "${type}".${closest ? ` The correct type is "${closest}" — check the spelling.` : " Check the Terraform docs for the exact type name."} An unknown type makes Terraform ignore the whole block.`,
-          fixHint: closest ? `Replace "${type}" with "${closest}"` : `Check the spelling of "${type}"`,
+          message: `"${typed}" is not a known AWS resource type.${closest ? ` Did you mean "${closest}"?` : ""}`,
+          eli5: `Terraform doesn't know a resource type called "${typed}".${closest ? ` The correct type is "${closest}" — check the spelling.` : " Check the Terraform docs for the exact type name."} An unknown type makes Terraform ignore the whole block.`,
+          fixHint: closest ? `Replace "${typed}" with "${closest}"` : `Check the spelling of "${typed}"`,
         });
         continue;
       }

@@ -384,7 +384,8 @@ variable "environment" {
         hint: "Add a resource block:\nresource \"aws_vpc\" \"main\" {\n  cidr_block = \"10.0.0.0/16\"\n}",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return /resource\s+"aws_vpc"\s+"main"\s*\{/s.test(main) && main.includes("10.0.0.0/16");
+          const vpcBlock = main.match(/resource\s+"aws_vpc"\s+"main"\s*\{([\s\S]*?)\n\}/);
+          return !!vpcBlock && /cidr_block\s*=\s*"10\.0\.0\.0\/16"/.test(vpcBlock[1]);
         }
       },
       {
@@ -393,9 +394,10 @@ variable "environment" {
         hint: "Add a resource block that wires the subnet to the VPC:\nresource \"aws_subnet\" \"public\" {\n  vpc_id     = aws_vpc.main.id\n  cidr_block = \"10.0.1.0/24\"\n}",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return /resource\s+"aws_subnet"\s+"public"\s*\{/s.test(main) &&
-                 main.includes("aws_vpc.main.id") &&
-                 main.includes("10.0.1.0/24");
+          const subBlock = main.match(/resource\s+"aws_subnet"\s+"public"\s*\{([\s\S]*?)\n\}/);
+          return !!subBlock &&
+                 /vpc_id\s*=\s*aws_vpc\.main\.id/.test(subBlock[1]) &&
+                 /cidr_block\s*=\s*"10\.0\.1\.0\/24"/.test(subBlock[1]);
         }
       },
       {
@@ -1104,10 +1106,14 @@ resource "aws_s3_bucket" "app_data" {
       {
         id: "task-1",
         description: "Tier 1 — Network foundation: declare the enterprise VPC 'prod' with CIDR 10.0.0.0/16 and DNS hostnames enabled.",
-        hint: "resource \"aws_vpc\" \"prod\" with cidr_block = \"10.0.0.0/16\" and enable_dns_hostnames = true.",
+        hint: "The VPC block needs its CIDR as a QUOTED string argument and the DNS flag:\n\nresource \"aws_vpc\" \"prod\" {\n  cidr_block           = \"10.0.0.0/16\"\n  enable_dns_hostnames = true\n\n  tags = {\n    Name        = \"Prod\"\n    Environment = \"Prod\"\n    ManagedBy   = \"Terraform\"\n  }\n}\n\nNote: the argument is cidr_block (not cidr), and the value is a quoted string — not a [list].",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return /resource\s+"aws_vpc"\s+"prod"/.test(main) && main.includes("10.0.0.0/16");
+          const vpc = main.match(/resource\s+"aws_vpc"\s+"prod"\s*\{([\s\S]*?)\n\}/);
+          if (!vpc) return false;
+          const b = vpc[1];
+          return /cidr_block\s*=\s*"10\.0\.0\.0\/16"/.test(b) &&
+                 /enable_dns_hostnames\s*=\s*true/.test(b);
         }
       },
       {

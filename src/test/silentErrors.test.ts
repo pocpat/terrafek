@@ -305,3 +305,30 @@ describe("round 7 — lab #17 backend s3 (user-reported hint/task mismatch)", ()
     expect(task2.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
   });
 });
+
+describe("round 8 — lab #18 task-1 VPC (user-reported)", () => {
+  const USER_CODE = 'resource "aws_vpc" "prod" {\ncidr = [10.0.0.0/16]\ntags = {\nName = "Prod" \nEnvironment = "Prod" \nManagedBy = "Terraform"\n}\n}';
+  const lab = LABS_DATA.find((l) => l.id === "lab-10-production-hero")!;
+  const task1 = lab.tasks.find((t) => t.id === "task-1")!;
+
+  it("task-1 REJECTS cidr=[...] without cidr_block and without dns flag", () => {
+    expect(task1.validationCheck({ "main.tf": USER_CODE }, createEmptyState(), [])).toBe(false);
+  });
+
+  it("task-1 accepts the correct block", () => {
+    const good = 'resource "aws_vpc" "prod" {\n  cidr_block           = "10.0.0.0/16"\n  enable_dns_hostnames = true\n}';
+    expect(task1.validationCheck({ "main.tf": good }, createEmptyState(), [])).toBe(true);
+  });
+
+  it("hint names the cidr/list mistake specifically", () => {
+    const out = diagnoseTask({ files: { "main.tf": USER_CODE }, labId: "lab-10-production-hero" });
+    expect(out.some((d) => d.message.includes("named cidr_block (not cidr)"))).toBe(true);
+  });
+
+  it("checker catches dash-typo type aws-vpc", () => {
+    const issues = checkHclSyntax('resource "aws-vpc" "prod" {\n  cidr_block = "10.0.0.0/16"\n}');
+    const issue = issues.find((i) => i.message.includes("not a known AWS resource type"));
+    expect(issue).toBeTruthy();
+    expect(issue!.fixHint).toContain("aws_vpc");
+  });
+});

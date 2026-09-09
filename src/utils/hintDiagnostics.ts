@@ -264,6 +264,35 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 11. Lab-10: VPC block mistakes (cidr list, unquoted CIDR, missing dns flag)
+  if (labId === "lab-10-production-hero") {
+    const vpcBlock = main.match(/resource\s+"aws_vpc"\s+"prod"\s*\{([\s\S]*?)\n\}/);
+    if (vpcBlock) {
+      const b = vpcBlock[1];
+      // cidr written as a list: cidr = [...]
+      if (/cidr\s*=\s*\[/.test(b) && !/cidr_block\s*=/.test(b)) {
+        out.push({
+          severity: "error",
+          message: "cidr = [10.0.0.0/16] — two problems: the argument is named cidr_block (not cidr), and the CIDR is a quoted STRING, not a [list].",
+          fix: 'Replace with:\n  cidr_block = "10.0.0.0/16"',
+        });
+      } else if (/cidr\s*=\s*\d/.test(b) && !/cidr_block\s*=\s*"/.test(b)) {
+        out.push({
+          severity: "error",
+          message: "The CIDR value is unquoted — cidr_block takes a quoted string: \"10.0.0.0/16\".",
+          fix: 'Change to:\n  cidr_block = "10.0.0.0/16"',
+        });
+      }
+      if (!/enable_dns_hostnames\s*=\s*true/.test(b) && /cidr_block/.test(b)) {
+        out.push({
+          severity: "warning",
+          message: "Task 1 also asks for DNS hostnames enabled — add enable_dns_hostnames = true to the VPC block.",
+          fix: "Add inside the VPC block:\n  enable_dns_hostnames = true",
+        });
+      }
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;
