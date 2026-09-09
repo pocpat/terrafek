@@ -402,8 +402,8 @@ variable "environment" {
       },
       {
         id: "task-4",
-        description: "Create an 'aws_security_group' named 'web_sg' inside the VPC that allows inbound traffic on ports 80 and 443.",
-        hint: "Add a security group with two ingress blocks (one for port 80, one for port 443), referencing aws_vpc.main.id:\nresource \"aws_security_group\" \"web_sg\" {\n  name   = \"allow-web-traffic\"\n  vpc_id = aws_vpc.main.id\n\n  ingress {\n    from_port   = 80\n    to_port     = 80\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n\n  ingress {\n    from_port   = 443\n    to_port     = 443\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}",
+        description: "Create a separate 'aws_security_group' resource named 'web_sg' that BELONGS to the VPC (set vpc_id = aws_vpc.main.id) and allows inbound traffic on ports 80 and 443.",
+        hint: "\"Inside the VPC\" means REFERENCED, not nested: write the security group as its own separate top-level resource block, and point its vpc_id at the VPC (Terraform never nests resource blocks inside each other). Add two ingress blocks (one for port 80, one for port 443):\nresource \"aws_security_group\" \"web_sg\" {\n  name   = \"allow-web-traffic\"\n  vpc_id = aws_vpc.main.id\n\n  ingress {\n    from_port   = 80\n    to_port     = 80\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n\n  ingress {\n    from_port   = 443\n    to_port     = 443\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           const flat = main.replace(/\s+/g, " ");
@@ -1129,7 +1129,7 @@ resource "aws_s3_bucket" "app_data" {
       },
       {
         id: "task-3",
-        description: "Tier 1 — Security: create the security group 'web_sg' inside the VPC allowing inbound TCP 443.",
+        description: "Tier 1 — Security: create a separate security group resource 'web_sg' that BELONGS to the VPC (vpc_id = aws_vpc.prod.id) allowing inbound TCP 443.",
         hint: "resource \"aws_security_group\" \"web_sg\" { vpc_id = aws_vpc.prod.id ... ingress { from_port = 443 ... } }",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
@@ -1159,7 +1159,7 @@ resource "aws_s3_bucket" "app_data" {
       },
       {
         id: "task-6",
-        description: "Compute tier & launch: declare the app instance 'app_cluster' inside the PRIVATE subnet, then run 'terraform apply' to provision the full topology.",
+        description: "Compute tier & launch: declare the app instance 'app_cluster' placed in the PRIVATE subnet (subnet_id = aws_subnet.private_1.id — a reference, the instance is its own separate block), then run 'terraform apply' to provision the full topology.",
         hint: "resource \"aws_instance\" \"app_cluster\" { subnet_id = aws_subnet.private_1.id ... } — then type 'terraform apply' in the terminal.",
         validationCheck: (codeMap, state) => {
           const main = codeMap["main.tf"] || "";
