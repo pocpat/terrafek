@@ -305,7 +305,20 @@ export default function App() {
         </div>
       ) : workspaceViewMode === "study" && activeMode !== "sandbox" ? (
         /* FOCUSED READING VIEW: Single-screen distraction-free reading of Walkthrough, Lab Brief, or Drill Diagnostic */
-        <div className="flex-1 flex justify-center bg-[#F5F8FA] overflow-hidden">
+        <div className="flex-1 flex justify-center bg-[#F5F8FA] overflow-hidden relative">
+          {/* COLLAPSE/EXPAND LEFT PANEL TOGGLE — mirrors the split-view pill so
+              a panel collapsed in split view can always be re-expanded here */}
+          <button
+            onClick={() => setIsLeftPanelCollapsed((prev) => !prev)}
+            className="absolute top-2 left-2 z-30 p-1.5 rounded-lg bg-white/90 hover:bg-white border border-stone-200 shadow-xs text-stone-600 hover:text-stone-900 transition-all backdrop-blur-xs"
+            title={isLeftPanelCollapsed ? "Expand Guide Panel" : "Collapse Guide Panel for more Editor room"}
+          >
+            {isLeftPanelCollapsed ? (
+              <PanelLeftOpen className="w-4 h-4 text-stone-800" />
+            ) : (
+              <PanelLeftClose className="w-4 h-4 text-stone-600" />
+            )}
+          </button>
           <div className="w-full max-w-5xl h-full flex flex-col bg-white border-x border-stone-200 shadow-xs overflow-hidden">
             <ErrorBoundary label="Guide">
             {activeMode === "walkthrough" && (
