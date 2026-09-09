@@ -888,8 +888,62 @@ Plan: 0 to add, 1 to change, 0 to destroy.`,
     },
     steps: [
       {
-        id: "workflow-1",
+        id: "workflow-0",
         stepNumber: 1,
+        title: "Stage 0: What Must Exist BEFORE Terraform",
+        subtitle: "The one-time console setup — and why everything else is code",
+        explanation:
+          "A common surprise: 'do I open the AWS console first and create the KMS keys, buckets, secrets?' — NO. Almost everything is created BY Terraform from your code. You declare resource \"aws_kms_key\" and it exists after apply. That's the whole point of Infrastructure as Code.\n\nOnly FOUR things must exist before your first 'terraform init' — a one-time, 10-minute setup:\n\n1. The cloud ACCOUNT itself (sign up at aws.amazon.com — cannot be Terraform'd; Terraform needs the account to exist).\n2. Credentials for Terraform to use: an IAM user/role with programmatic access keys (or SSO). Stored in environment variables or ~/.aws/credentials — NEVER in your .tf files.\n3. The remote state backend: one S3 bucket + one DynamoDB lock table (created once by hand or a tiny bootstrap Terraform run — the famous chicken-and-egg: Terraform needs state storage, but state storage can't store its own creation).\n4. The Terraform binary itself (terraform init also downloads the provider plugins from the registry — no manual install).\n\nEverything else — KMS keys, Secrets Manager entries, IAM roles, VPCs, databases — you DECLARE in .tf files and Terraform creates them. You never click those in the console.\n\nMULTI-CLOUD? Same principle, one provider block per cloud. Each provider has its own credential setup (AWS_ACCESS_KEY_ID / ARM_CLIENT_ID / GOOGLE_CREDENTIALS...) — a one-time task per cloud account. After that, ONE codebase declares AWS, Azure, and GCP resources side by side, and each provider plugin talks to its own API. You don't pre-open any cloud console; you pre-configure only the credentials.",
+        objectives: [
+          "Know the only four one-time prerequisites: account, credentials, state backend, Terraform binary",
+          "Stop pre-creating resources in the console — KMS keys, secrets, buckets are declared in code",
+          "Understand multi-cloud: one provider block + one credential setup per cloud account"
+        ],
+        keyRules: [
+          "Console work is a one-time bootstrap: account + credentials + state backend.",
+          "KMS keys, secrets, IAM roles, networks — all declared in .tf; apply creates them.",
+          "Credentials live in environment variables or the provider's credential file — never in code.",
+          "Multi-cloud = multiple provider blocks in one codebase, one credential setup per cloud."
+        ],
+        codeSnippet: `# The one-time bootstrap (console or a tiny separate TF run):
+#   1. AWS account exists
+#   2. IAM user 'terraform-admin' with programmatic keys
+#   3. S3 bucket 'company-tf-state-prod' + DynamoDB 'terraform-state-lock'
+
+# THEN everything else is code — including the keys:
+resource "aws_kms_key" "db"   { enable_key_rotation = true }
+resource "aws_secretsmanager_secret" "db" { name = "prod/db" }
+
+# Multi-cloud in ONE codebase:
+provider "aws"    { region = "eu-west-1" }        # creds: AWS_ACCESS_KEY_ID
+provider "azurerm" { /* creds: ARM_CLIENT_ID */ }
+provider "google" { /* creds: GOOGLE_CREDENTIALS */ }
+
+# terraform init downloads a plugin per provider —
+# each talks to its own cloud API. One apply, three clouds.`,
+        fileName: "workflow.md",
+        codeHighlights: [
+          { label: "resource aws_kms_key", text: "The KMS key itself is code — you never pre-create it in the console" },
+          { label: "provider azurerm", text: "Multi-cloud: one provider block per cloud, one credential setup per account" }
+        ],
+        diagramType: "provider_flow",
+        commandToTest: "terraform init",
+        quickCheck: {
+          question: "Before writing Terraform to create a KMS key and a database, what must you set up by hand?",
+          options: [
+            "Create the KMS key and the database in the console first, then import them",
+            "Only the account, Terraform credentials, and the state backend — everything else is code",
+            "Open every cloud console and pre-create all secrets and keys",
+            "Install a KMS plugin manually"
+          ],
+          correctIndex: 1,
+          explanation:
+            "KMS keys, secrets, and all resources are declared in code and created by apply. The one-time bootstrap is only: cloud account, Terraform credentials (env vars), and the remote state backend."
+        }
+      },
+      {
+        id: "workflow-1",
+        stepNumber: 2,
         title: "Stage 1: Initialize (terraform init)",
         subtitle: "Preparing the workspace and plugins",
         explanation:
@@ -922,7 +976,7 @@ Terraform has been successfully initialized!`,
       },
       {
         id: "workflow-2",
-        stepNumber: 2,
+        stepNumber: 3,
         title: "Stage 2: Plan (terraform plan)",
         subtitle: "Speculative execution and change preview",
         explanation:
@@ -959,7 +1013,7 @@ Plan: 1 to add, 0 to change, 0 to destroy.`,
       },
       {
         id: "workflow-3",
-        stepNumber: 3,
+        stepNumber: 4,
         title: "Stage 3: Apply & Destroy (terraform apply)",
         subtitle: "Executing changes and updating state",
         explanation:
