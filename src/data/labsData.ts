@@ -1006,20 +1006,27 @@ resource "aws_instance" "web" {
     tasks: [
       {
         id: "task-1",
-        description: "In the 'terraform' block, configure 'backend \"s3\"' with bucket 'company-tf-state-prod'.",
-        hint: "terraform { backend \"s3\" { bucket = \"company-tf-state-prod\", key = \"prod/app.tfstate\", region = \"us-east-1\", dynamodb_table = \"tf-locks\" } }",
+        description: "In the 'terraform' block, configure the S3 backend: bucket 'company-tf-state-prod' with key 'prod/app.tfstate' in region 'us-east-1'.",
+        hint: "The backend block needs three parts — where the state lives and which file inside the bucket:\n\nterraform {\n  backend \"s3\" {\n    bucket = \"company-tf-state-prod\"\n    key    = \"prod/app.tfstate\"\n    region = \"us-east-1\"\n  }\n}\n\n(bucket = which bucket stores the state; key = the file path INSIDE the bucket; region = where that bucket lives. State locking gets its own task next.)",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return main.includes('backend "s3"') && main.includes("company-tf-state-prod");
+          const backend = main.match(/backend\s+"s3"\s*\{([\s\S]*?)\n\s*\}/);
+          if (!backend) return false;
+          const b = backend[1];
+          return /bucket\s*=\s*"company-tf-state-prod"/.test(b) &&
+                 /key\s*=\s*"prod\/app\.tfstate"/.test(b) &&
+                 /region\s*=\s*"us-east-1"/.test(b);
         }
       },
       {
         id: "task-2",
-        description: "Specify 'dynamodb_table = \"terraform-state-lock\"' to enable concurrency locking.",
-        hint: "Add dynamodb_table = \"terraform-state-lock\" inside backend \"s3\"",
+        description: "Enable state locking: add 'dynamodb_table = \"terraform-state-lock\"' inside the backend \"s3\" block.",
+        hint: "One line inside the backend block:\n\n  dynamodb_table = \"terraform-state-lock\"\n\nWith a lock table, two engineers running 'apply' at the same time can't corrupt the state — the second one waits. (Terraform 1.10+ can also use S3 native locking with use_lockfile = true — this course uses the classic DynamoDB table.)",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return main.includes("dynamodb_table") || main.includes("terraform-state-lock");
+          const backend = main.match(/backend\s+"s3"\s*\{([\s\S]*?)\n\s*\}/);
+          if (!backend) return false;
+          return /dynamodb_table\s*=\s*"terraform-state-lock"/.test(backend[1]);
         }
       },
       {

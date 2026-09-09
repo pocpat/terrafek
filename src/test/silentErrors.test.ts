@@ -252,3 +252,56 @@ describe("round 6 — 'map (string)' with space (user-reported)", () => {
     expect(out.filter((d) => d.message.includes("needs its type") || d.message.includes("LINE BREAKS")).length).toBe(0);
   });
 });
+
+describe("round 7 — lab #17 backend s3 (user-reported hint/task mismatch)", () => {
+  const lab = LABS_DATA.find((l) => l.id === "lab-9-remote-state-locking")!;
+  const task1 = lab.tasks.find((t) => t.id === "task-1")!;
+  const task2 = lab.tasks.find((t) => t.id === "task-2")!;
+
+  it("hint no longer contains dynamodb_table (it belongs to task-2, with a different value)", () => {
+    expect(task1.hint.includes("dynamodb")).toBe(false);
+    expect(task1.hint.includes("tf-locks")).toBe(false);
+  });
+
+  it("hint is multi-line formatted (no comma-joined one-liner)", () => {
+    expect(task1.hint.includes("\n")).toBe(true);
+    expect(task1.hint.includes(", key =")).toBe(false);
+  });
+
+  it("task-1 check requires bucket + key + region inside the backend block", () => {
+    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n  }\n}';
+    const onlyBucket = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n  }\n}';
+    expect(task1.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
+    expect(task1.validationCheck({ "main.tf": onlyBucket }, createEmptyState(), [])).toBe(false);
+  });
+
+  it("task-2 requires the exact lock table name, not just any dynamodb_table", () => {
+    const wrongName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "tf-locks"\n  }\n}';
+    const rightName = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
+    expect(task2.validationCheck({ "main.tf": wrongName }, createEmptyState(), [])).toBe(false);
+    expect(task2.validationCheck({ "main.tf": rightName }, createEmptyState(), [])).toBe(true);
+  });
+
+  it("hint engine names a wrong lock-table value", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    dynamodb_table = "tf-locks"\n  }\n}' },
+      labId: "lab-9-remote-state-locking",
+    });
+    expect(out.some((d) => d.message.includes('"tf-locks" doesn\'t match'))).toBe(true);
+  });
+
+  it("hint engine names a missing backend argument", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n  }\n}' },
+      labId: "lab-9-remote-state-locking",
+    });
+    expect(out.some((d) => d.message.includes("missing its key —"))).toBe(true);
+    expect(out.some((d) => d.message.includes("missing its region —"))).toBe(true);
+  });
+
+  it("both tasks accept the complete correct backend", () => {
+    const full = 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n    dynamodb_table = "terraform-state-lock"\n  }\n}';
+    expect(task1.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
+    expect(task2.validationCheck({ "main.tf": full }, createEmptyState(), [])).toBe(true);
+  });
+});

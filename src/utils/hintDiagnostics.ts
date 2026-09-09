@@ -224,6 +224,46 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 10. Lab-9: backend "s3" configuration mistakes
+  if (labId === "lab-9-remote-state-locking") {
+    const backendBlock = main.match(/backend\s+"s3"\s*\{([\s\S]*?)\n?\}/);
+
+    if (!backendBlock) {
+      if (/terraform\s*\{/.test(main)) {
+        out.push({
+          severity: "warning",
+          message: 'The terraform block exists but has no backend "s3" { ... } inside it — task 1 needs the S3 backend declared.',
+          fix: 'terraform {\n  backend "s3" {\n    bucket = "company-tf-state-prod"\n    key    = "prod/app.tfstate"\n    region = "us-east-1"\n  }\n}',
+        });
+      }
+    } else {
+      const b = backendBlock[1];
+      const args: [RegExp, string, string][] = [
+        [/bucket/, 'bucket = "company-tf-state-prod"', "bucket — which S3 bucket stores the state file"],
+        [/key/, 'key = "prod/app.tfstate"', "key — the file path INSIDE the bucket"],
+        [/region/, 'region = "us-east-1"', "region — where that bucket lives"],
+      ];
+      for (const [re, fix, what] of args) {
+        if (!re.test(b)) {
+          out.push({
+            severity: "error",
+            message: `The backend is missing its ${what}.`,
+            fix: `Add inside backend "s3":\n  ${fix}`,
+          });
+        }
+      }
+      // task-2's lock value: hint once suggested the WRONG table name — catch it
+      const wrongLock = b.match(/dynamodb_table\s*=\s*"([^"]+)"/);
+      if (wrongLock && wrongLock[1] !== "terraform-state-lock") {
+        out.push({
+          severity: "error",
+          message: `The lock table name "${wrongLock[1]}" doesn't match — this lab uses "terraform-state-lock".`,
+          fix: 'Change to:\n  dynamodb_table = "terraform-state-lock"',
+        });
+      }
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;
