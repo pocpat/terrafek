@@ -1140,12 +1140,15 @@ resource "aws_s3_bucket" "app_data" {
       {
         id: "task-4",
         description: "Tier 2 — Load balancing: declare the Application Load Balancer 'app_alb' placed in the public subnet and using the web_sg security group.",
-        hint: "resource \"aws_lb\" \"app_alb\" { load_balancer_type = \"application\", security_groups = [aws_security_group.web_sg.id], subnets = [aws_subnet.public_1.id] }",
+        hint: "The ALB takes LISTS for security groups and subnets (they can attach to several), and the references are unquoted:\n\nresource \"aws_lb\" \"app_alb\" {\n  name            = \"app-alb\"\n  load_balancer_type = \"application\"\n  security_groups = [aws_security_group.web_sg.id]\n  subnets         = [aws_subnet.public_1.id]\n}\n\nNote: the argument is subnets (plural, a list) — not subnet_id. And the references have no quotes: quotes would make them plain text.",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
-          return /resource\s+"aws_lb"\s+"app_alb"/.test(main) &&
-                 /aws_lb"\s+"app_alb"\s*\{[\s\S]*?aws_security_group\.web_sg\.id/.test(main) &&
-                 /aws_lb"\s+"app_alb"\s*\{[\s\S]*?aws_subnet\.public_1\.id/.test(main);
+          const lb = main.match(/resource\s+"aws_lb"\s+"app_alb"\s*\{([\s\S]*?)\n\}/);
+          if (!lb) return false;
+          const b = lb[1];
+          return /load_balancer_type\s*=\s*"application"/.test(b) &&
+                 /security_groups\s*=\s*\[\s*aws_security_group\.web_sg\.id\s*\]/.test(b) &&
+                 /subnets\s*=\s*\[\s*aws_subnet\.public_1\.id\s*\]/.test(b);
         }
       },
       {

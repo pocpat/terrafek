@@ -293,6 +293,40 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // 12. Lab-10: aws_lb argument mistakes (wrong names, quoted refs)
+  if (labId === "lab-10-production-hero") {
+    const lbBlock = main.match(/resource\s+"aws_lb"\s+"app_alb"\s*\{([\s\S]*?)\n\}/);
+    if (lbBlock) {
+      const b = lbBlock[1];
+
+      // 12a. quoted references: subnet_id = "aws_subnet.public_1.id"
+      const quotedRef = b.match(/=\s*"((?:aws|var|local|module|data)[a-zA-Z0-9_.-]*\.[a-zA-Z0-9_.-]+)"/);
+      if (quotedRef) {
+        out.push({
+          severity: "error",
+          message: `"${quotedRef[1]}" is inside quotes — that makes it plain TEXT, not a reference. Remove the quotes to use the real resource.`,
+          fix: `Change "${quotedRef[1]}" to ${quotedRef[1]} (no quotes)`,
+        });
+      }
+
+      // 12b. wrong argument names for aws_lb
+      if (/^\s*subnet_id\s*=/m.test(b)) {
+        out.push({
+          severity: "error",
+          message: 'aws_lb has no "subnet_id" argument — it uses "subnets" (a LIST, because an ALB can span several subnets).',
+          fix: "Replace:\n  subnet_id = ...\nwith:\n  subnets = [aws_subnet.public_1.id]",
+        });
+      }
+      if (/^\s*sg_id\s*=/m.test(b) || /^\s*security_group\s*=/m.test(b) || /^\s*security_group_ids\s*=/m.test(b)) {
+        out.push({
+          severity: "error",
+          message: 'aws_lb has no "sg_id" argument — it uses "security_groups" (a LIST of security group IDs).',
+          fix: "Replace:\n  sg_id = ...\nwith:\n  security_groups = [aws_security_group.web_sg.id]",
+        });
+      }
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;

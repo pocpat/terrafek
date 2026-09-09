@@ -332,3 +332,42 @@ describe("round 8 — lab #18 task-1 VPC (user-reported)", () => {
     expect(issue!.fixHint).toContain("aws_vpc");
   });
 });
+
+describe("round 9 — lab #18 task-4 aws_lb (user-reported)", () => {
+  const lab = LABS_DATA.find((l) => l.id === "lab-10-production-hero")!;
+  const task4 = lab.tasks.find((t) => t.id === "task-4")!;
+
+  it("task-4 REJECTS wrong arg names + quoted references (user's exact code)", () => {
+    const user = 'resource "aws_lb" "app_alb"{\nsubnet_id = "aws_subnet.public_1.id"\nsg_id = "aws_security_group.web_sg.id"\n}';
+    expect(task4.validationCheck({ "main.tf": user }, createEmptyState(), [])).toBe(false);
+  });
+
+  it("task-4 accepts the correct list-based references", () => {
+    const good = 'resource "aws_lb" "app_alb" {\n  load_balancer_type = "application"\n  security_groups = [aws_security_group.web_sg.id]\n  subnets = [aws_subnet.public_1.id]\n}';
+    expect(task4.validationCheck({ "main.tf": good }, createEmptyState(), [])).toBe(true);
+  });
+
+  it("hint engine names the quoted-reference mistake", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'resource "aws_lb" "app_alb"{\nsubnet_id = "aws_subnet.public_1.id"\nsg_id = "aws_security_group.web_sg.id"\n}' },
+      labId: "lab-10-production-hero",
+    });
+    expect(out.some((d) => d.message.includes("plain TEXT, not a reference"))).toBe(true);
+  });
+
+  it("hint engine names the wrong subnet_id argument", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'resource "aws_lb" "app_alb"{\nsubnet_id = aws_subnet.public_1.id\n}' },
+      labId: "lab-10-production-hero",
+    });
+    expect(out.some((d) => d.message.includes('"subnets" (a LIST'))).toBe(true);
+  });
+
+  it("hint engine names the wrong sg_id argument", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'resource "aws_lb" "app_alb"{\nsg_id = aws_security_group.web_sg.id\n}' },
+      labId: "lab-10-production-hero",
+    });
+    expect(out.some((d) => d.message.includes('"security_groups"'))).toBe(true);
+  });
+});
