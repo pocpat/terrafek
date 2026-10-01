@@ -1319,15 +1319,17 @@ output "db_endpoint" {
       },
       {
         id: "task-3",
-        description: "Declare the storage account 'stinvoicearchive' wired to the resource group: name, resource_group_name, and location must all be set.",
-        hint: "Add:\nresource \"azurerm_storage_account\" \"invoice_archive\" {\n  name                     = \"stinvoicearchive\"\n  resource_group_name      = azurerm_resource_group.finance_rg.name\n  location                 = azurerm_resource_group.finance_rg.location\n  account_tier             = \"Standard\"\n  account_replication_type = \"GRS\"\n}\nNote the unquoted references azurerm_resource_group.finance_rg.name / .location — quoting them would make them plain text. GRS = geo-redundant: data is copied to a second region hundreds of km away, which is exactly what the auditors want after the loss.",
+        description: "Declare the storage account 'stinvoicearchive' wired to the resource group: name, resource_group_name, and location must all be set. Also give it account_tier = \"Standard\" and account_replication_type = \"GRS\" — Azure requires both; GRS (geo-redundant storage) automatically copies your data to a second region hundreds of km away, which is exactly what the auditors want after the loss.",
+        hint: "Add:\nresource \"azurerm_storage_account\" \"invoice_archive\" {\n  name                     = \"stinvoicearchive\"\n  resource_group_name      = azurerm_resource_group.finance_rg.name\n  location                 = azurerm_resource_group.finance_rg.location\n  account_tier             = \"Standard\"\n  account_replication_type = \"GRS\"\n}\nNote the unquoted references azurerm_resource_group.finance_rg.name / .location — quoting them would make them plain text. account_tier \"Standard\" is Azure's normal tier (\"Premium\" exists but costs much more); account_replication_type \"GRS\" = geo-redundant copies to a paired region.",
         validationCheck: (codeMap) => {
           const main = codeMap["main.tf"] || "";
           const sa = main.match(/resource\s+"azurerm_storage_account"\s+"invoice_archive"\s*\{([\s\S]*?)\n\}/);
           return !!sa &&
                  /name\s*=\s*"stinvoicearchive"/.test(sa[1]) &&
                  /resource_group_name\s*=\s*azurerm_resource_group\.finance_rg\.name/.test(sa[1]) &&
-                 /(?:location\s*=\s*azurerm_resource_group\.finance_rg\.location)|(?:location\s*=\s*"West Europe")/.test(sa[1]);
+                 /(?:location\s*=\s*azurerm_resource_group\.finance_rg\.location)|(?:location\s*=\s*"West Europe")/.test(sa[1]) &&
+                 /account_tier\s*=\s*"Standard"/.test(sa[1]) &&
+                 /account_replication_type\s*=\s*"GRS"/.test(sa[1]);
         }
       },
       {
@@ -1377,7 +1379,7 @@ output "db_endpoint" {
       "main.tf": `# Lab 7.1: Azure Durable Document Storage (RetailCo invoice-loss incident)
 # TODO Task 1: provider "azurerm" with a features {} block
 # TODO Task 2: resource group finance_rg in "West Europe"
-# TODO Task 3: storage account stinvoicearchive wired to the group
+# TODO Task 3: storage account stinvoicearchive wired to the group — with account_tier "Standard" + account_replication_type "GRS"
 # TODO Task 4: tags (Environment / ManagedBy / CostCentre)
 # TODO Task 5: storage container "invoices" wired to the account
 # TODO Task 6: terraform init
