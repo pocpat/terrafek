@@ -215,6 +215,152 @@ export function runTerraformValidate(codeMap: Record<string, string>): { valid: 
         fixHint: `Add the missing arguments inside the resource block`,
       });
     }
+
+    // ── Phase 4 multi-cloud required arguments ──
+    if (res.type === "azurerm_resource_group" && !res.attributes.location) {
+      const msg = `Missing required argument: "location" is required for "${res.id}".`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, "location");
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your resource group "${res.name}" is missing "location" — the Azure region (like "West Europe") where the group and everything in it lives.`,
+        fixHint: `Add location = "West Europe" inside the resource block`,
+      });
+    }
+    if (res.type === "azurerm_storage_account" && (!res.attributes.name || !res.attributes.resource_group_name || !res.attributes.location)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.resource_group_name) missing.push("resource_group_name");
+      if (!res.attributes.location) missing.push("location");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your storage account "${res.name}" is missing: ${missing.join(", ")}. A storage account needs a globally unique lowercase name, the resource group it belongs to, and the Azure region.`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
+    if (res.type === "azurerm_virtual_network" && (!res.attributes.name || !res.attributes.address_space || !res.attributes.location || !res.attributes.resource_group_name)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.address_space) missing.push("address_space");
+      if (!res.attributes.location) missing.push("location");
+      if (!res.attributes.resource_group_name) missing.push("resource_group_name");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your virtual network "${res.name}" is missing: ${missing.join(", ")}. A VNet needs its own name, an IP range (address_space like "10.0.0.0/16"), a region, and the resource group it belongs to.`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
+    if (res.type === "azurerm_subnet" && (!res.attributes.name || !res.attributes.resource_group_name || !res.attributes.virtual_network_name)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.resource_group_name) missing.push("resource_group_name");
+      if (!res.attributes.virtual_network_name) missing.push("virtual_network_name");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your subnet "${res.name}" is missing: ${missing.join(", ")}. An Azure subnet is created INSIDE an existing VNet — it needs its name, the resource group, and the VNet name (check the spelling of virtual_network_name against your VNet's name argument).`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
+    if ((res.type === "azurerm_windows_virtual_machine" || res.type === "azurerm_linux_virtual_machine") &&
+        (!res.attributes.name || !res.attributes.size || !res.attributes.admin_username || !res.attributes.network_interface_ids)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.size) missing.push("size");
+      if (!res.attributes.admin_username) missing.push("admin_username");
+      if (!res.attributes.network_interface_ids) missing.push("network_interface_ids");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your VM "${res.name}" is missing: ${missing.join(", ")}. A virtual machine needs its name, a hardware size (like "Standard_B2s"), an admin username, and the network interface that plugs it into the subnet.`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
+    if (res.type === "google_storage_bucket" && !res.attributes.name) {
+      const msg = `Missing required argument: "name" is required for "${res.id}".`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, "name");
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your GCS bucket "${res.name}" is missing "name" — the globally unique bucket name (lowercase letters, numbers and dashes only).`,
+        fixHint: `Add name = "your-bucket-name" inside the resource block`,
+      });
+    }
+    if (res.type === "google_compute_network" && !res.attributes.name) {
+      const msg = `Missing required argument: "name" is required for "${res.id}".`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, "name");
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your VPC network "${res.name}" is missing "name" — the network's identifier that subnets and firewall rules will reference.`,
+        fixHint: `Add name = "your-network-name" inside the resource block`,
+      });
+    }
+    if (res.type === "google_compute_subnetwork" && (!res.attributes.name || !res.attributes.region || !res.attributes.ip_cidr_range || !res.attributes.network)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.region) missing.push("region");
+      if (!res.attributes.ip_cidr_range) missing.push("ip_cidr_range");
+      if (!res.attributes.network) missing.push("network");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your subnetwork "${res.name}" is missing: ${missing.join(", ")}. A Google subnet needs its name, the region it sits in (like "australia-southeast1"), its IP range (ip_cidr_range, NOT cidr_block — that's AWS naming), and the network it belongs to.`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
+    if (res.type === "google_compute_instance" && (!res.attributes.name || !res.attributes.machine_type)) {
+      const missing: string[] = [];
+      if (!res.attributes.name) missing.push("name");
+      if (!res.attributes.machine_type) missing.push("machine_type");
+      const msg = `Missing required arguments for "${res.id}": "${missing.join('" and "')}" are required.`;
+      errors.push(msg);
+      const line = findAttributeLine(fileName, res.type, res.name, missing[0]);
+      detailedErrors.push({
+        message: msg,
+        line,
+        fileName,
+        severity: "error",
+        eli5: `Your compute instance "${res.name}" is missing: ${missing.join(", ")}. A Google VM needs its name and a hardware size (machine_type, like "e2-medium").`,
+        fixHint: `Add the missing arguments inside the resource block`,
+      });
+    }
   });
 
   // Output blocks missing their required "value" argument — real Terraform
@@ -462,8 +608,40 @@ export function applyTerraform(
       logs.push(`${res.id}: Modifying... [id=${resId}]`);
       logs.push(`${res.id}: Modifications complete after 1s [id=${resId}]`);
     } else {
-      // Create
-      const prefix = res.type.includes("s3")
+      // Create — provider-aware prefixes and simulated IDs
+      const isAzure = res.provider === "azurerm";
+      const isGoogle = res.provider === "google";
+      const prefix = isAzure
+        ? (res.type.includes("resource_group")
+          ? "rg"
+          : res.type.includes("storage")
+          ? "st"
+          : res.type.includes("virtual_network")
+          ? "vnet"
+          : res.type.includes("subnet")
+          ? "snet"
+          : res.type.includes("network_security")
+          ? "nsg"
+          : res.type.includes("network_interface")
+          ? "nic"
+          : res.type.includes("public_ip")
+          ? "pip"
+          : res.type.includes("virtual_machine")
+          ? "vm"
+          : "azres")
+        : isGoogle
+        ? (res.type.includes("storage_bucket")
+          ? (res.attributes.name || "bucket")
+          : res.type.includes("network") && !res.type.includes("subnetwork")
+          ? "network"
+          : res.type.includes("subnetwork")
+          ? "subnetwork"
+          : res.type.includes("firewall")
+          ? "firewall"
+          : res.type.includes("instance")
+          ? "instance"
+          : "gres")
+        : res.type.includes("s3")
         ? (res.attributes.bucket || "bucket")
         : res.type.includes("vpc")
         ? "vpc"
@@ -478,7 +656,11 @@ export function applyTerraform(
         : "res";
 
       resId = generateRandomId(prefix);
-      resArn = `arn:aws:${res.type}:us-east-1:123456789012:${resId}`;
+      resArn = isAzure
+        ? `/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/${res.attributes.resource_group_name || "rg-lab"}/providers/${res.type}/${resId}`
+        : isGoogle
+        ? `projects/${res.attributes.project || "gcp-lab-project"}/regions/${res.attributes.region || "australia-southeast1"}/${res.type}/${resId}`
+        : `arn:aws:${res.type}:us-east-1:123456789012:${resId}`;
       logs.push(`${res.id}: Creating...`);
       logs.push(`${res.id}: Still creating... [10s elapsed]`);
       logs.push(`${res.id}: Creation complete after 12s [id=${resId}]`);

@@ -72,9 +72,10 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
     }
 
     // --- Check 0b: Wrong-cased TYPE inside quotes ---
-    // provider "AWS", resource "AWS_INSTANCE" — the keyword is fine but the
-    // quoted type must be lowercase too. Real Terraform rejects these; the
-    // lenient parser silently ignores the whole block.
+    // provider "AWS", resource "AWS_INSTANCE", resource "AZURERM_STORAGE_ACCOUNT",
+    // resource "GOOGLE_STORAGE_BUCKET" — the keyword is fine but the quoted type
+    // must be lowercase for every provider namespace (aws/azurerm/google), since
+    // real Terraform rejects these; the lenient parser silently ignores the block.
     // NOTE: must run BEFORE the block-header skip below, which would otherwise
     // swallow lines like `provider "AWS" {` silently.
     const quotedTypeMatch = line.match(/^(resource|data|provider|module)\s+"([A-Za-z0-9_]+)"/);
@@ -93,16 +94,14 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
       }
     }
 
-    // --- Check 0c: Unknown aws_* resource type (likely typo) ---
-    // resource "aws_instence" — shaped like a real type but not one Terraform
-    // knows. The parser drops the block silently and validate passes.
-    const awsTypeMatch = line.match(/^resource\s+"(aws[_-][a-z0-9_-]+)"\s+"[a-zA-Z0-9_-]+"/);
+    // --- Check 0c: Unknown resource type (likely typo) ---
+    // resource "aws_instence", resource "azurerm_storage_accont" — shaped like a
+    // real type but not one Terraform knows. The parser drops the block silently
+    // and validate passes.
+    const awsTypeMatch = line.match(/^resource\s+"((?:aws|azurerm|google)[_-][a-z0-9_-]+)"\s+"[a-zA-Z0-9_-]+"/);
     if (awsTypeMatch) {
-      // normalize dash typos (aws-vpc → aws_vpc) before matching known types
-      const type = awsTypeMatch[1].replace(/-/g, "_");
-      const typed = awsTypeMatch[1];
-      // Common canonical types taught across the course
-      const KNOWN_AWS_TYPES = [
+      const KNOWN_TYPES = [
+        // AWS — types taught across Phases 1-3
         "aws_s3_bucket", "aws_instance", "aws_vpc", "aws_subnet", "aws_security_group",
         "aws_internet_gateway", "aws_route_table", "aws_route_table_association",
         "aws_db_instance", "aws_lb", "aws_alb", "aws_autoscaling_group",
@@ -110,25 +109,41 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
         "aws_iam_policy", "aws_iam_role_policy_attachment", "aws_dynamodb_table",
         "aws_s3_bucket_versioning", "aws_s3_bucket_server_side_encryption_configuration",
         "aws_ecr_repository", "aws_lambda_function", "aws_cloudwatch_log_group",
+        // Azure (azurerm provider) — types taught in Phase 4
+        "azurerm_resource_group", "azurerm_storage_account", "azurerm_container_registry",
+        "azurerm_virtual_network", "azurerm_subnet", "azurerm_network_security_group",
+        "azurerm_network_security_rule", "azurerm_public_ip", "azurerm_network_interface",
+        "azurerm_windows_virtual_machine", "azurerm_linux_virtual_machine",
+        "azurerm_key_vault", "azurerm_mssql_server", "azurerm_mssql_database", "azurerm_log_analytics_workspace",
+        "azurerm_storage_container",
+        // Google Cloud (google provider) — types taught in Phase 4
+        "google_storage_bucket", "google_container_registry", "google_artifact_registry_repository",
+        "google_compute_network", "google_compute_subnetwork", "google_compute_firewall",
+        "google_compute_instance", "google_compute_address", "google_sql_database_instance",
+        "google_storage_bucket_object", "google_project_iam_member",
       ];
+      // normalize dash typos (aws-vpc → aws_vpc) before matching known types
+      const type = awsTypeMatch[1].replace(/-/g, "_");
+      const typed = awsTypeMatch[1];
+      const nsLabel = typed.startsWith("azurerm") ? "Azure" : typed.startsWith("google") ? "Google" : "AWS";
       // raw token decides "known vs unknown": aws-vpc is invalid HCL even
       // though its underscore twin aws_vpc is a real type — dashes are not
       // legal in type names, so the dash typo must be flagged.
-      if (!KNOWN_AWS_TYPES.includes(awsTypeMatch[1])) {
+      if (!KNOWN_TYPES.includes(awsTypeMatch[1])) {
         // Find the closest known type by simple distance (typo detection)
         let closest: string | undefined = undefined;
-        for (const k of KNOWN_AWS_TYPES) {
+        for (const k of KNOWN_TYPES) {
           if (Math.abs(k.length - type.length) > 2) continue;
           let diff = 0;
           for (let c = 0; c < Math.min(k.length, type.length); c++) if (k[c] !== type[c]) diff++;
           diff += Math.abs(k.length - type.length);
-          if (diff <= 2) { closest = k; break; }
+          if (diff <= 3) { closest = k; break; }
         }
         issues.push({
           line: i + 1,
           column: rawLine.indexOf(`"${typed}"`) + 2,
           severity: "error",
-          message: `"${typed}" is not a known AWS resource type.${closest ? ` Did you mean "${closest}"?` : ""}`,
+          message: `"${typed}" is not a known ${nsLabel} resource type.${closest ? ` Did you mean "${closest}"?` : ""}`,
           eli5: `Terraform doesn't know a resource type called "${typed}".${closest ? ` The correct type is "${closest}" — check the spelling.` : " Check the Terraform docs for the exact type name."} An unknown type makes Terraform ignore the whole block.`,
           fixHint: closest ? `Replace "${typed}" with "${closest}"` : `Check the spelling of "${typed}"`,
         });
@@ -316,8 +331,8 @@ export function checkHclSyntax(code: string): SyntaxIssue[] {
           line: i + 1,
           column: rawLine.indexOf(key) + 1,
           severity: "warning",
-          message: `Tag key "${key}" has the wrong case — AWS tag keys are case-sensitive.`,
-          eli5: `You wrote "${key}", but the task (and AWS convention) requires exactly "${canonical}". A differently-cased key creates a DIFFERENT tag, so checklist steps that verify "${canonical}" will stay grey.`,
+          message: `Tag key "${key}" has the wrong case — cloud tag keys are case-sensitive (AWS, Azure and Google all treat them as exact strings).`,
+          eli5: `You wrote "${key}", but the task (and cloud provider convention) requires exactly "${canonical}". A differently-cased key creates a DIFFERENT tag, so checklist steps that verify "${canonical}" will stay grey.`,
           fixHint: `Rename the key to "${canonical}"`,
         });
       }

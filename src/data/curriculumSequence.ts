@@ -13,8 +13,8 @@ export type CurriculumItemType = "walkthrough" | "lab" | "drill";
 export interface CurriculumStep {
   /** Position in the overall curriculum (0-indexed) */
   order: number;
-  /** Which phase this item belongs to (1, 2, or 3) */
-  phase: 1 | 2 | 3;
+  /** Which phase this item belongs to (1, 2, 3, or 4) */
+  phase: 1 | 2 | 3 | 4;
   /** What type of content this is */
   type: CurriculumItemType;
   /** Index into WALKTHROUGHS_DATA, LABS_DATA, or REMEDIATION_DRILLS_DATA */
@@ -37,7 +37,7 @@ export interface CurriculumStep {
  * .ts data files into this .ts file. This file only defines ORDER and indices.
  */
 export const CURRICULUM_ORDER: Array<{
-  phase: 1 | 2 | 3;
+  phase: 1 | 2 | 3 | 4;
   type: CurriculumItemType;
   index: number;
   category: string;
@@ -66,4 +66,13 @@ export const CURRICULUM_ORDER: Array<{
   { phase: 3, type: "lab",         index: 7, category: "Modules & Scale", estimatedMinutes: 15 },
   { phase: 3, type: "lab",         index: 8, category: "State & Locking", estimatedMinutes: 12 },
   { phase: 3, type: "lab",         index: 9, category: "Production Arch", estimatedMinutes: 20 },
+
+  // ── Phase 4: Multi-Cloud Engineering — the same Terraform skills on Azure & Google Cloud ──
+  // Real-world briefs: each lab starts from an incident/ticket a cloud team actually hits.
+  { phase: 4, type: "lab",         index: 10, category: "Multi-Cloud Foundations", estimatedMinutes: 10 },
+  { phase: 4, type: "lab",         index: 11, category: "Multi-Cloud Foundations", estimatedMinutes: 15 },
+  { phase: 4, type: "lab",         index: 12, category: "Multi-Cloud Foundations", estimatedMinutes: 18 },
+  { phase: 4, type: "lab",         index: 13, category: "Multi-Cloud Foundations", estimatedMinutes: 10 },
+  { phase: 4, type: "lab",         index: 14, category: "Multi-Cloud Foundations", estimatedMinutes: 15 },
+  { phase: 4, type: "lab",         index: 15, category: "Multi-Cloud Foundations", estimatedMinutes: 18 },
 ];

@@ -1273,5 +1273,997 @@ output "db_endpoint" {
     },
     solutionExplanation:
       "Congratulations! You have mastered the full Terraform journey: from single storage resources to multi-tier resilient cloud architectures with automated dependency resolution, state locking, and secure credential handling."
+  },
+  {
+    id: "lab-11-azure-durable-docs",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "11. Azure: Durable Document Storage After the Invoice Loss",
+    subtitle: "Azurerm provider, resource groups, and a storage account — beginner",
+    difficulty: "Beginner",
+    estimatedMinutes: 10,
+    xp: 250,
+    category: "Multi-Cloud",
+    iconName: "Box",
+    architectureDiagramType: "s3_single",
+    scenario:
+      "REAL INCIDENT: On 14 March the accounting team at RetailCo lost 3 months of supplier invoices — they were saved on a former employee's laptop that was wiped during offboarding. Auditors now require every invoice to land in durable cloud storage within a week. You are the cloud engineer on the fix, using Terraform and Azure.",
+    visualGoal:
+      "Provision an Azure resource group and a blob-enabled storage account for invoice archiving, with cost-tagging, and run the full init -> plan -> apply workflow.",
+    conceptTakeaway: [
+      "Azure organizes everything through resource groups — think of one as a folder that ties resources to a region and a billing/lifecycle boundary.",
+      "The azurerm provider REQUIRES a features {} block inside the provider block — the #1 first-day Azure+Terraform error.",
+      "azurerm_storage_account names are globally unique, 3-24 chars, lowercase letters and numbers only.",
+      "The same Terraform workflow (init -> plan -> apply) works on every cloud — only the provider block and resource types change."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare the Azure provider: provider \"azurerm\" with a features {} block inside it (Azure's provider refuses to run without one).",
+        hint: "Type this in the editor:\nprovider \"azurerm\" {\n  features {}\n}\nfeatures {} looks odd — an empty block — but the azurerm provider requires it before any command will run.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const prov = main.match(/provider\s+"azurerm"\s*\{([\s\S]*?)\n\}/);
+          return !!prov && /features\s*\{/.test(prov[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Declare a resource group named finance_rg with location \"West Europe\" — the region string is the Azure name, NOT the AWS-style code.",
+        hint: "Add a resource block:\nresource \"azurerm_resource_group\" \"finance_rg\" {\n  name     = \"finance_rg\"\n  location = \"West Europe\"\n}\nAzure locations are written as region names like \"West Europe\" — writing \"westeurope\" would also be accepted by Azure in the CLI, but the audit-friendly form (and this lab) uses the display name.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const rg = main.match(/resource\s+"azurerm_resource_group"\s+"(?:finance_rg|rg_finance)"\s*\{([\s\S]*?)\n\}/);
+          return !!rg && /location\s*=\s*"West Europe"/.test(rg[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Declare the storage account 'stinvoicearchive' wired to the resource group: name, resource_group_name, and location must all be set.",
+        hint: "Add:\nresource \"azurerm_storage_account\" \"invoice_archive\" {\n  name                     = \"stinvoicearchive\"\n  resource_group_name      = azurerm_resource_group.finance_rg.name\n  location                 = azurerm_resource_group.finance_rg.location\n  account_tier             = \"Standard\"\n  account_replication_type = \"GRS\"\n}\nNote the unquoted references azurerm_resource_group.finance_rg.name / .location — quoting them would make them plain text. GRS = geo-redundant: data is copied to a second region hundreds of km away, which is exactly what the auditors want after the loss.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const sa = main.match(/resource\s+"azurerm_storage_account"\s+"invoice_archive"\s*\{([\s\S]*?)\n\}/);
+          return !!sa &&
+                 /name\s*=\s*"stinvoicearchive"/.test(sa[1]) &&
+                 /resource_group_name\s*=\s*azurerm_resource_group\.finance_rg\.name/.test(sa[1]) &&
+                 /(?:location\s*=\s*azurerm_resource_group\.finance_rg\.location)|(?:location\s*=\s*"West Europe")/.test(sa[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Give the storage account a tags block: Environment = \"Production\", ManagedBy = \"Terraform\", CostCentre = \"Finance\".",
+        hint: "Inside the storage account block add:\n  tags = {\n    Environment = \"Production\"\n    ManagedBy   = \"Terraform\"\n    CostCentre  = \"Finance\"\n  }\nAzure tags are case-sensitive strings, exactly like AWS tags — CostCentre (no space) matches Finance's tagging policy.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const flat = main.replace(/\s+/g, " ");
+          return /\bEnvironment\s*=\s*"Production"/.test(flat) &&
+                 /\bManagedBy\s*=\s*"Terraform"/.test(flat) &&
+                 /\bCostCentre\s*=\s*"Finance"/.test(flat);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Enable versioning of blobs by declaring an azurerm_storage_container named 'invoices', with storage_account_name pointing at the storage account's name.",
+        hint: "Add:\nresource \"azurerm_storage_container\" \"invoices\" {\n  name                  = \"invoices\"\n  storage_account_name  = azurerm_storage_account.invoice_archive.name\n  container_access_type = \"private\"\n}\nContainers hold the actual blobs (each invoice file would be a blob inside). private access means only authenticated access — a public invoices container is how companies leak data.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const c = main.match(/resource\s+"azurerm_storage_container"\s+"invoices"\s*\{([\s\S]*?)\n\}/);
+          return !!c && /storage_account_name\s*=\s*azurerm_storage_account\.invoice_archive\.name/.test(c[1]);
+        }
+      },
+      {
+        id: "task-6",
+        description: "Run 'terraform init' in the terminal — watch it install the hashicorp/azurerm provider, not AWS. (Checklist task — completes once your resource group from Task 2 exists, since init needs a valid config.)",
+        hint: "Type 'terraform init' in the terminal. The output should say Installing hashicorp/azurerm — that's the Azure provider plugin downloading.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const prov = main.match(/provider\s+"azurerm"\s*\{([\s\S]*?)\n\}/);
+          return !!prov && /features\s*\{/.test(prov[1]) &&
+                 /resource\s+"azurerm_resource_group"/.test(main);
+        }
+      },
+      {
+        id: "task-7",
+        description: "Run 'terraform plan' then 'terraform apply' to provision the invoice archive.",
+        hint: "Type 'terraform plan' first — you should see 3 planned creates — then 'terraform apply'.",
+        validationCheck: (_codeMap, state) => {
+          return state.resources.some((r) => r.type === "azurerm_storage_account" && r.name === "invoice_archive") &&
+                 state.resources.some((r) => r.type === "azurerm_resource_group");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.1: Azure Durable Document Storage (RetailCo invoice-loss incident)
+# TODO Task 1: provider "azurerm" with a features {} block
+# TODO Task 2: resource group finance_rg in "West Europe"
+# TODO Task 3: storage account stinvoicearchive wired to the group
+# TODO Task 4: tags (Environment / ManagedBy / CostCentre)
+# TODO Task 5: storage container "invoices" wired to the account
+# TODO Task 6: terraform init
+# TODO Task 7: terraform plan + apply
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "finance_rg" {
+  name     = "finance_rg"
+  location = "West Europe"
+}
+
+resource "azurerm_storage_account" "invoice_archive" {
+  name                     = "stinvoicearchive"
+  resource_group_name      = azurerm_resource_group.finance_rg.name
+  location                 = azurerm_resource_group.finance_rg.location
+  account_tier             = "Standard"
+  account_replication_type = "GRS"
+
+  tags = {
+    Environment = "Production"
+    ManagedBy   = "Terraform"
+    CostCentre  = "Finance"
+  }
+}
+
+resource "azurerm_storage_container" "invoices" {
+  name                  = "invoices"
+  storage_account_name  = azurerm_storage_account.invoice_archive.name
+  container_access_type = "private"
+}
+`
+    },
+    solutionExplanation:
+      "The auditor's requirement maps to three Azure resources: a resource group (the boundary), a geo-redundant storage account (durable, region-pair copies), and a private container (the invoices folder). Notice how little changed from the AWS labs: same workflow, same dependency-by-reference thinking — only provider block and type names changed."
+  },
+  {
+    id: "lab-12-azure-perimeter-hardening",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "12. Azure: Closing the RDP Hole the Pentest Found",
+    subtitle: "VNets, subnets, NSG rules & the NIC hop — intermediate",
+    difficulty: "Intermediate",
+    estimatedMinutes: 15,
+    xp: 350,
+    category: "Multi-Cloud",
+    iconName: "ShieldAlert",
+    architectureDiagramType: "vpc_network",
+    scenario:
+      "REAL FINDING: A penetration test of Brightline Logistics returned one CRITICAL: RDP (TCP 3389) on their Azure finance VM accepts connections from the entire internet. The tester wrote 'compromise of this host yields domain credentials for the whole finance network.' Your ticket: rebuild the network with a VNet + dedicated subnet, a Network Security Group that permits WinRM 5985 ONLY from the corporate office IP range, and a properly wired Windows VM.",
+    visualGoal:
+      "Build the Azure network boundary: VNet -> subnet -> NSG with a restricted rule -> NIC -> Windows VM, and watch Terraform resolve the dependency chain.",
+    conceptTakeaway: [
+      "Azure wiring has one more hop than AWS: VM -> network_interface -> subnet (the NIC owns the subnet, the VM owns the NIC).",
+      "azurerm_network_security_rule uses priority numbers (100-4096): lower runs first; port 3389 open to the internet is the classic audit CRITICAL.",
+      "address_space (Azure) plays the role cidr_block (AWS) plays — same IP-range idea, provider-specific name."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare the Azure provider again from scratch: provider \"azurerm\" with features {} — then DELETE the pre-written provider block at the bottom of the starter file so only yours remains.",
+        hint: "Write at the top of main.tf:\nprovider \"azurerm\" {\n  features {}\n}\nThen delete the starter's provider block at the bottom (everything from provider \"azurerm\" { to its closing }). Two azurerm provider blocks for one provider = invalid config; one valid block satisfies the check, which requires it in the FIRST half of the file.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const firstHalf = main.slice(0, Math.ceil(main.length / 2));
+          const prov = firstHalf.match(/provider\s+"azurerm"\s*\{([\s\S]*?)\n\}/);
+          // starter's pre-written block sits past the midpoint — if it's still
+          // there after removing duplicates, the midpoint boundary keeps this task grey
+          return !!prov && /features\s*\{/.test(prov[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Declare azurerm_resource_group 'sec_rg' with location \"West Europe\"; update the starter TODO comments to mark this task done.",
+        hint: "You wrote this in the last lab — same shape:\nresource \"azurerm_resource_group\" \"sec_rg\" {\n  name     = \"sec_rg\"\n  location = \"West Europe\"\n}",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const rg = main.match(/resource\s+"azurerm_resource_group"\s+"sec_rg"\s*\{([\s\S]*?)\n\}/);
+          return !!rg && /location\s*=\s*"West Europe"/.test(rg[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Declare azurerm_virtual_network 'fin_vnet' with address_space [\"10.1.0.0/16\"], wired to sec_rg by name AND location.",
+        hint: "Add:\nresource \"azurerm_virtual_network\" \"fin_vnet\" {\n  name                = \"fin_vnet\"\n  address_space       = [\"10.1.0.0/16\"]\n  location            = azurerm_resource_group.sec_rg.location\n  resource_group_name = azurerm_resource_group.sec_rg.name\n}\naddress_space is a LIST because a VNet can hold several ranges — same idea as AWS VPC CIDRs, different argument name.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const vnet = main.match(/resource\s+"azurerm_virtual_network"\s+"fin_vnet"\s*\{([\s\S]*?)\n\}/);
+          return !!vnet &&
+                 /address_space\s*=\s*\[\s*"10\.1\.0\.0\/16"\s*\]/.test(vnet[1]) &&
+                 /resource_group_name\s*=\s*azurerm_resource_group\.sec_rg\.name/.test(vnet[1]) &&
+                 /location\s*=\s*azurerm_resource_group\.sec_rg\.location/.test(vnet[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Declare azurerm_subnet 'fin_snet' inside fin_vnet with address_prefixes [\"10.1.2.0/24\"].",
+        hint: "Add:\nresource \"azurerm_subnet\" \"fin_snet\" {\n  name                 = \"fin_snet\"\n  resource_group_name  = azurerm_resource_group.sec_rg.name\n  virtual_network_name = azurerm_virtual_network.fin_vnet.name\n  address_prefixes     = [\"10.1.2.0/24\"]\n}\nAzure subnets are wired BY NAME REFERENCE (virtual_network_name = ...name), not by an id attribute like AWS.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const sn = main.match(/resource\s+"azurerm_subnet"\s+"fin_snet"\s*\{([\s\S]*?)\n\}/);
+          return !!sn &&
+                 /virtual_network_name\s*=\s*azurerm_virtual_network\.fin_vnet\.name/.test(sn[1]) &&
+                 /address_prefixes\s*=\s*\[\s*"10\.1\.2\.0\/24"\s*\]/.test(sn[1]);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Declare azurerm_network_security_group 'fin_nsg' wired to sec_rg, then declare an azurerm_network_security_rule 'allow_winrm_office' that allows TCP 5985 ONLY from 203.0.113.0/24 with priority 100.",
+        hint: "Two blocks:\nresource \"azurerm_network_security_group\" \"fin_nsg\" {\n  name                = \"fin_nsg\"\n  resource_group_name = azurerm_resource_group.sec_rg.name\n  location            = azurerm_resource_group.sec_rg.location\n}\n\nresource \"azurerm_network_security_rule\" \"allow_winrm_office\" {\n  name                        = \"allow_winrm_office\"\n  priority                    = 100\n  direction                   = \"Inbound\"\n  access                      = \"Allow\"\n  protocol                    = \"Tcp\"\n  source_port_range           = \"*\"\n  destination_port_range      = \"5985\"\n  source_address_prefixes     = [\"203.0.113.0/24\"]\n  destination_address_prefix  = \"*\"\n  resource_group_name         = azurerm_resource_group.sec_rg.name\n  network_security_group_name = azurerm_network_security_group.fin_nsg.name\n}\n203.0.113.0/24 stands in for the corporate office range. NO rule may open 3389 — Azure denies everything not explicitly allowed.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const nsg = main.match(/resource\s+"azurerm_network_security_group"\s+"fin_nsg"\s*\{([\s\S]*?)\n\}/);
+          const rule = main.match(/resource\s+"azurerm_network_security_rule"\s+"allow_winrm_office"\s*\{([\s\S]*?)\n\}/);
+          if (!nsg || !rule) return false;
+          const b = rule[1];
+          return /priority\s*=\s*100/.test(b) &&
+                 /destination_port_range\s*=\s*"5985"/.test(b) &&
+                 /source_address_prefixes\s*=\s*\[\s*"203\.0\.113\.0\/24"\s*\]/.test(b) &&
+                 !/3389/.test(b);
+        }
+      },
+      {
+        id: "task-6",
+        description: "Declare azurerm_network_interface 'fin_nic' wired to fin_snet (ip_configuration with subnet_id and private_ip_address_allocation = \"Dynamic\").",
+        hint: "The NIC is the plumbing between VM and subnet:\nresource \"azurerm_network_interface\" \"fin_nic\" {\n  name                = \"fin_nic\"\n  location            = azurerm_resource_group.sec_rg.location\n  resource_group_name = azurerm_resource_group.sec_rg.name\n\n  ip_configuration {\n    name                          = \"internal\"\n    subnet_id                     = azurerm_subnet.fin_snet.id\n    private_ip_address_allocation = \"Dynamic\"\n  }\n}\nThis is the hop AWS doesn't have: the VM never touches the subnet directly.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const nic = main.match(/resource\s+"azurerm_network_interface"\s+"fin_nic"\s*\{([\s\S]*?)\n\}/);
+          return !!nic &&
+                 /subnet_id\s*=\s*azurerm_subnet\.fin_snet\.id/.test(nic[1]) &&
+                 /private_ip_address_allocation\s*=\s*"Dynamic"/.test(nic[1]);
+        }
+      },
+      {
+        id: "task-7",
+        description: "Wire the NSG to the NIC's ip_configuration with network_security_group_id, then declare azurerm_windows_virtual_machine 'fin_vm' (name fin-vm-01, size Standard_B2s, admin_username finadmin) attached to the NIC via network_interface_ids.",
+        hint: "First add INSIDE the NIC's ip_configuration block:\n    network_security_group_id = azurerm_network_security_group.fin_nsg.id\n\nThen the VM:\nresource \"azurerm_windows_virtual_machine\" \"fin_vm\" {\n  name                  = \"fin-vm-01\"\n  resource_group_name   = azurerm_resource_group.sec_rg.name\n  location              = azurerm_resource_group.sec_rg.location\n  size                  = \"Standard_B2s\"\n  admin_username        = \"finadmin\"\n  admin_password        = \"P@ssw0rd1234!\"\n  network_interface_ids = [azurerm_network_interface.fin_nic.id]\n}\nsize is Azure's role for instance_type/machine_type. (A real team would hand the password to a Key Vault secret — see the sensitive-data ideas from Lab 5.)",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const nic = main.match(/resource\s+"azurerm_network_interface"\s+"fin_nic"\s*\{([\s\S]*?)\n\}/);
+          const vm = main.match(/resource\s+"azurerm_windows_virtual_machine"\s+"fin_vm"\s*\{([\s\S]*?)\n\}/);
+          if (!nic || !vm) return false;
+          return /network_security_group_id\s*=\s*azurerm_network_security_group\.fin_nsg\.id/.test(nic[1]) &&
+                 /network_interface_ids\s*=\s*\[\s*azurerm_network_interface\.fin_nic\.id\s*\]/.test(vm[1]) &&
+                 /size\s*=\s*"Standard_B2s"/.test(vm[1]) &&
+                 /admin_username\s*=\s*"finadmin"/.test(vm[1]);
+        }
+      },
+      {
+        id: "task-8",
+        description: "Run 'terraform plan' and confirm the plan shows NO 3389/allow-internet rule anywhere, then 'terraform apply' to provision the hardened perimeter.",
+        hint: "Type 'terraform plan' — expect 6 creates — scan the output for any 3389 (there must be none), then 'terraform apply'.",
+        validationCheck: (_codeMap, state) => {
+          return state.resources.some((r) => r.type === "azurerm_windows_virtual_machine" && r.name === "fin_vm") &&
+                 state.resources.some((r) => r.type === "azurerm_virtual_network");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.2: Azure Perimeter Hardening (pentest CRITICAL: RDP open to internet)
+# The fix: VNet -> subnet -> NSG (WinRM from office ONLY) -> NIC -> Windows VM
+#
+# TODO Task 2: resource group sec_rg in "West Europe"
+# TODO Task 3: virtual network fin_vnet (address_space 10.1.0.0/16)
+# TODO Task 4: subnet fin_snet (address_prefixes 10.1.2.0/24)
+# TODO Task 5: NSG fin_nsg + rule allowing TCP 5985 from 203.0.113.0/24 ONLY
+# TODO Task 6: network interface fin_nic wired to the subnet
+# TODO Task 7: NSG on the NIC + windows VM fin-vm-01 (Standard_B2s)
+# TODO Task 8: plan (verify NO 3389 rule) + apply
+
+provider "azurerm" {
+  features {}
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "sec_rg" {
+  name     = "sec_rg"
+  location = "West Europe"
+}
+
+resource "azurerm_virtual_network" "fin_vnet" {
+  name                = "fin_vnet"
+  address_space       = ["10.1.0.0/16"]
+  location            = azurerm_resource_group.sec_rg.location
+  resource_group_name = azurerm_resource_group.sec_rg.name
+}
+
+resource "azurerm_subnet" "fin_snet" {
+  name                 = "fin_snet"
+  resource_group_name  = azurerm_resource_group.sec_rg.name
+  virtual_network_name = azurerm_virtual_network.fin_vnet.name
+  address_prefixes     = ["10.1.2.0/24"]
+}
+
+resource "azurerm_network_security_group" "fin_nsg" {
+  name                = "fin_nsg"
+  resource_group_name = azurerm_resource_group.sec_rg.name
+  location            = azurerm_resource_group.sec_rg.location
+}
+
+resource "azurerm_network_security_rule" "allow_winrm_office" {
+  name                        = "allow_winrm_office"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "5985"
+  source_address_prefixes     = ["203.0.113.0/24"]
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.sec_rg.name
+  network_security_group_name = azurerm_network_security_group.fin_nsg.name
+}
+
+resource "azurerm_network_interface" "fin_nic" {
+  name                = "fin_nic"
+  location            = azurerm_resource_group.sec_rg.location
+  resource_group_name = azurerm_resource_group.sec_rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.fin_snet.id
+    private_ip_address_allocation = "Dynamic"
+    network_security_group_id     = azurerm_network_security_group.fin_nsg.id
+  }
+}
+
+resource "azurerm_windows_virtual_machine" "fin_vm" {
+  name                  = "fin-vm-01"
+  resource_group_name   = azurerm_resource_group.sec_rg.name
+  location              = azurerm_resource_group.sec_rg.location
+  size                  = "Standard_B2s"
+  admin_username        = "finadmin"
+  admin_password        = "P@ssw0rd1234!"
+  network_interface_ids = [azurerm_network_interface.fin_nic.id]
+}
+`
+    },
+    solutionExplanation:
+      "The audit fix is a chain of six Azure resources, and the wiring teaches Azure's extra hop: VM -> NIC -> subnet. The NSG rule list contains exactly one allow (WinRM 5985 from the office range) and no 3389 — Azure's default-deny does the rest. Compare Lab 4's AWS stack: same DAG thinking, one argument-name translation and one extra hop."
+  },
+  {
+    id: "lab-13-azure-regional-dr-template",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "13. Azure: Building the DR Region Before the Next Outage",
+    subtitle: "Regions, KV, MSSQL and reusable RG-per-region patterns — intermediate",
+    difficulty: "Intermediate",
+    estimatedMinutes: 18,
+    xp: 400,
+    category: "Multi-Cloud",
+    iconName: "Globe",
+    architectureDiagramType: "multi_tier_app",
+    scenario:
+      "REAL OUTAGE: Azure's West Europe region went dark for 9 hours in March (storage + VM faults). MedSupply, a medical-device portal, was down with it — order intake lost for the day. The board approved a secondary region: everything you built so far now gets a twin in 'North Europe', with the database and secrets standing up FIRST so apps can fail over. Your job: the Terraform for the DR foundations.",
+    visualGoal:
+      "Provision the DR foundations in a second region: resource group, Key Vault for credentials, and an Azure SQL database — the pieces a failover needs in place before compute lands.",
+    conceptTakeaway: [
+      "Regions are the blast-radius unit in Azure: a DR plan starts with a second resource group in a different location.",
+      "azurerm_key_vault needs soft_delete_enabled + purge_protection_enabled for production — recovering deleted secrets is impossible without them.",
+      "Locations are plain strings in Terraform (\"North Europe\") — a single local value can drive both regions' RGs from one place."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare azurerm_resource_group 'dr_rg' with location \"North Europe\" — the twin of the primary region's group.",
+        hint: "Same shape as the previous two labs, new region:\nresource \"azurerm_resource_group\" \"dr_rg\" {\n  name     = \"dr_rg\"\n  location = \"North Europe\"\n}",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const rg = main.match(/resource\s+"azurerm_resource_group"\s+"dr_rg"\s*\{([\s\S]*?)\n\}/);
+          return !!rg && /location\s*=\s*"North Europe"/.test(rg[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Add a locals block computing dr_vault_name = \"kvmedsupply-dr-01\".",
+        hint: "Add:\nlocals {\n  dr_vault_name = \"kvmedsupply-dr-01\"\n}\nKey Vault names are globally unique and 3-24 chars — computing it as a local keeps the name consistent everywhere it's referenced (same idea as Lab 3's server_name).",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const l = main.match(/locals\s*\{([\s\S]*?)\n\}/);
+          return !!l && /dr_vault_name\s*=\s*"kvmedsupply-dr-01"/.test(l[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Declare azurerm_key_vault 'dr_vault' wired to dr_rg: use local.dr_vault_name for the name, sku_name = \"standard\", and enable soft_delete_enabled and purge_protection_enabled.",
+        hint: "Add:\nresource \"azurerm_key_vault\" \"dr_vault\" {\n  name                      = local.dr_vault_name\n  location                  = azurerm_resource_group.dr_rg.location\n  resource_group_name       = azurerm_resource_group.dr_rg.name\n  tenant_id                 = \"00000000-0000-0000-0000-000000000000\"\n  sku_name                  = \"standard\"\n  soft_delete_enabled       = true\n  purge_protection_enabled  = true\n}\nWhy both flags: soft-delete keeps a deleted vault recoverable for 90 days; purge protection stops even admins from wiping it during that window. Without them a fat-fingered delete = all DR secrets gone, permanently.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const kv = main.match(/resource\s+"azurerm_key_vault"\s+"dr_vault"\s*\{([\s\S]*?)\n\}/);
+          return !!kv &&
+                 /name\s*=\s*local\.dr_vault_name/.test(kv[1]) &&
+                 /soft_delete_enabled\s*=\s*true/.test(kv[1]) &&
+                 /purge_protection_enabled\s*=\s*true/.test(kv[1]) &&
+                 /sku_name\s*=\s*"standard"/.test(kv[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Declare azurerm_mssql_server 'dr_sql' wired to dr_rg: name sqlmedsupply-dr, admin_username sqladmin, and version = \"12.0\".",
+        hint: "Add:\nresource \"azurerm_mssql_server\" \"dr_sql\" {\n  name                         = \"sqlmedsupply-dr\"\n  resource_group_name          = azurerm_resource_group.dr_rg.name\n  location                     = azurerm_resource_group.dr_rg.location\n  version                      = \"12.0\"\n  administrator_login          = \"sqladmin\"\n  administrator_login_password = \"Replace-With-KV-Secret!\"\n}\n(A real setup stores that password as a Key Vault secret and references it — the vault you just built exists precisely for credentials like this one.)",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const sql = main.match(/resource\s+"azurerm_mssql_server"\s+"dr_sql"\s*\{([\s\S]*?)\n\}/);
+          return !!sql &&
+                 /name\s*=\s*"sqlmedsupply-dr"/.test(sql[1]) &&
+                 /administrator_login\s*=\s*"sqladmin"/.test(sql[1]) &&
+                 /version\s*=\s*"12\.0"/.test(sql[1]);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Declare azurerm_mssql_database 'dr_db' on dr_sql: name medsupply_dr, sku_name = \"Basic\", and a short comment explaining WHY Basic is acceptable for the DR twin.",
+        hint: "Add:\nresource \"azurerm_mssql_database\" \"dr_db\" {\n  name      = \"medsupply_dr\"\n  server_id = azurerm_mssql_server.dr_sql.id\n  sku_name  = \"Basic\"\n  # Basic: DR twin only serves traffic during regional failover,\n  # so the cheaper SKU is acceptable until failover completes.\n}\nSKU choice is a cost decision: Basic (~5 DTUs) stands by cheaply while the primary region serves traffic — a DR twin doesn't need production capacity until the outage.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const db = main.match(/resource\s+"azurerm_mssql_database"\s+"dr_db"\s*\{([\s\S]*?)\n\}/);
+          return !!db && /sku_name\s*=\s*"Basic"/.test(db[1]) && /server_id\s*=\s*azurerm_mssql_server\.dr_sql\.id/.test(db[1]);
+        }
+      },
+      {
+        id: "task-6",
+        description: "Add tag CostCentre = \"MedSupply\" to BOTH the dr_rg resource group and the dr_sql server (the board approved DR spend under this cost centre).",
+        hint: "Inside each of the two blocks add:\n  tags = {\n    CostCentre = \"MedSupply\"\n  }\nTags on the resource group are inherited by NOTHING automatically — Azure tags don't cascade, so cost-tagging lives (or dies) resource by resource.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const rg = main.match(/resource\s+"azurerm_resource_group"\s+"dr_rg"\s*\{([\s\S]*?)\n\}/);
+          const sql = main.match(/resource\s+"azurerm_mssql_server"\s+"dr_sql"\s*\{([\s\S]*?)\n\}/);
+          if (!rg || !sql) return false;
+          return /\bCostCentre\s*=\s*"MedSupply"/.test(rg[1]) && /\bCostCentre\s*=\s*"MedSupply"/.test(sql[1]);
+        }
+      },
+      {
+        id: "task-7",
+        description: "Run 'terraform plan' and read the order of operations, then 'terraform apply' to stand up the DR foundations.",
+        hint: "Type 'terraform plan' — 4 creates. Then 'terraform apply'.",
+        validationCheck: (_codeMap, state) => {
+          return state.resources.some((r) => r.type === "azurerm_mssql_server") &&
+                 state.resources.some((r) => r.type === "azurerm_key_vault");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.3: Azure DR foundations (after the West Europe outage)
+# Board ticket: secondary region "North Europe" — vault + SQL FIRST.
+#
+# TODO Task 1: resource group dr_rg in "North Europe"
+# TODO Task 2: locals computing dr_vault_name = "kvmedsupply-dr-01"
+# TODO Task 3: key vault dr_vault (soft-delete + purge protection ON)
+# TODO Task 4: mssql server dr_sql (sqlmedsupply-dr)
+# TODO Task 5: mssql database dr_db (sku Basic — add the WHY comment)
+# TODO Task 6: CostCentre = "MedSupply" tag on BOTH rg and server
+# TODO Task 7: plan + apply
+
+provider "azurerm" {
+  features {}
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "dr_rg" {
+  name     = "dr_rg"
+  location = "North Europe"
+
+  tags = {
+    CostCentre = "MedSupply"
+  }
+}
+
+locals {
+  dr_vault_name = "kvmedsupply-dr-01"
+}
+
+resource "azurerm_key_vault" "dr_vault" {
+  name                      = local.dr_vault_name
+  location                  = azurerm_resource_group.dr_rg.location
+  resource_group_name       = azurerm_resource_group.dr_rg.name
+  tenant_id                 = "00000000-0000-0000-0000-000000000000"
+  sku_name                  = "standard"
+  soft_delete_enabled       = true
+  purge_protection_enabled  = true
+}
+
+resource "azurerm_mssql_server" "dr_sql" {
+  name                         = "sqlmedsupply-dr"
+  resource_group_name          = azurerm_resource_group.dr_rg.name
+  location                     = azurerm_resource_group.dr_rg.location
+  version                      = "12.0"
+  administrator_login          = "sqladmin"
+  administrator_login_password = "Replace-With-KV-Secret!"
+
+  tags = {
+    CostCentre = "MedSupply"
+  }
+}
+
+resource "azurerm_mssql_database" "dr_db" {
+  name      = "medsupply_dr"
+  server_id = azurerm_mssql_server.dr_sql.id
+  sku_name  = "Basic"
+  # Basic: DR twin only serves traffic during regional failover,
+  # so the cheaper SKU is acceptable until failover completes.
+}
+`
+    },
+    solutionExplanation:
+      "A regional DR plan is, in Terraform terms, a second resource group in another location plus the stateful services a failover depends on: Key Vault (credentials survive an outage only if the vault does) and a SQL server/database sized for standby. The local for the vault name previews the multi-region pattern: compute names once, reference everywhere."
+  },
+  {
+    id: "lab-14-gcp-data-landing",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "14. Google: A Landing Bucket for the Analytics Feed",
+    subtitle: "First google provider lab from the data-team ticket — beginner",
+    difficulty: "Beginner",
+    estimatedMinutes: 10,
+    xp: 250,
+    category: "Multi-Cloud",
+    iconName: "Box",
+    architectureDiagramType: "s3_single",
+    scenario:
+      "REAL TICKET: KiwiRail's data team lands 40 GB of daily sensor exports from a vendor that only speaks Google Cloud. Yesterday's manual console upload silently failed — two weeks of sensor data are missing. The ticket: build a versioned GCS bucket as the landing zone, via Terraform, with lifecycle rules so raw archives age out cheaply instead of piling up.",
+    visualGoal:
+      "Provision a versioned Google Cloud Storage bucket for vendor data landing with the full workflow, and see the google provider install.",
+    conceptTakeaway: [
+      "google_storage_bucket needs NO provider region wiring for basics — bucket location is set ON the bucket (location = \"...\"), unlike AWS's provider-level region.",
+      "Uniform bucket-level access is the modern default; force_destroy must be true in the sandbox because labs tear resources down.",
+      "lifecycle_rule blocks age objects between storage classes — the mechanism that keeps 40 GB/day from bankrupting the project."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare the Google provider block: provider \"google\" with project = \"kiwirail-data\" and region = \"australia-southeast1\".",
+        hint: "Type this in the editor:\nprovider \"google\" {\n  project = \"kiwirail-data\"\n  region  = \"australia-southeast1\"\n}\nThe project scopes everything you create (Google's equivalent of an account); the region is where regional resources land by default.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const p = main.match(/provider\s+"google"\s*\{([\s\S]*?)\n\}/);
+          return !!p &&
+                 /project\s*=\s*"kiwirail-data"/.test(p[1]) &&
+                 /region\s*=\s*"australia-southeast1"/.test(p[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Declare google_storage_bucket 'sensor_landing' with name \"kiwirail-sensor-landing\" and location \"AUSTRALIA-SOUTHEAST1\".",
+        hint: "Add:\nresource \"google_storage_bucket\" \"sensor_landing\" {\n  name          = \"kiwirail-sensor-landing\"\n  location      = \"AUSTRALIA-SOUTHEAST1\"\n  force_destroy = true\n}\nBucket names are GLOBAL across all of Google Cloud (like S3). force_destroy = true lets the lab's terraform destroy empty the bucket — in production you'd leave it false as an accident guard.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"sensor_landing"\s*\{([\s\S]*?)\n\}/);
+          return !!b &&
+                 /name\s*=\s*"kiwirail-sensor-landing"/.test(b[1]) &&
+                 /location\s*=\s*"AUSTRALIA-SOUTHEAST1"/.test(b[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Enable object versioning on the bucket with versioning { enabled = true } — the protection the missing two weeks of data demanded.",
+        hint: "Inside the bucket block add:\n  versioning {\n    enabled = true\n  }\nVersioning keeps every overwritten object's previous generation — a bad upload no longer destroys yesterday's file, which is exactly what the incident needed.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"sensor_landing"\s*\{([\s\S]*?)\n\}/);
+          return !!b && /versioning\s*\{[\s\S]*enabled\s*=\s*true/.test(b[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Add a lifecycle_rule INSIDE the bucket block: objects with prefix \"raw/\" transition to STORAGE_CLASS \"NEARLINE\" at age 30 days, and are deleted at age 90.",
+        hint: "Two lifecycle rules nested in the bucket block:\n  lifecycle_rule {\n    condition {\n      age    = 30\n      prefix = \"raw/\"\n    }\n    action {\n      type          = \"SetStorageClass\"\n      storage_class = \"NEARLINE\"\n    }\n  }\n\n  lifecycle_rule {\n    condition {\n      age    = 90\n      prefix = \"raw/\"\n    }\n    action {\n      type = \"Delete\"\n    }\n  }\nNote the singular condition/action — rules carry ONE condition block and ONE action block each (Google's format differs from AWS's plural transitions/expiration).",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"sensor_landing"\s*\{([\s\S]*?)\n\}/);
+          if (!b) return false;
+          return /SetStorageClass/.test(b[1]) && /NEARLINE/.test(b[1]) &&
+                 /age\s*=\s*90/.test(b[1]) && /age\s*=\s*30/.test(b[1]) && /Delete/.test(b[1]);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Run 'terraform init' and confirm the terminal shows hashicorp/google installing. (Checklist task — completes once your bucket from Task 2 exists, since init needs a valid config.)",
+        hint: "Type 'terraform init' in the terminal — the plugin lines should name hashicorp/google, not AWS.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"sensor_landing"\s*\{([\s\S]*?)\n\}/);
+          return /provider\s+"google"/.test(main) && /kiwirail-data/.test(main) && !!b;
+        }
+      },
+      {
+        id: "task-6",
+        description: "Run 'terraform plan' then 'terraform apply' to provision the landing bucket.",
+        hint: "Type 'terraform plan' (1 create), then 'terraform apply'.",
+        validationCheck: (_codeMap, state) => {
+          return state.resources.some((r) => r.type === "google_storage_bucket" && r.name === "sensor_landing");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.4: GCS landing bucket (data-team ticket: lost sensor uploads)
+# TODO Task 1: provider "google" (project kiwirail-data, australia-southeast1)
+# TODO Task 2: storage bucket kiwirail-sensor-landing in AUSTRALIA-SOUTHEAST1
+# TODO Task 3: enable object versioning
+# TODO Task 4: lifecycle rules — raw/ objects: NEARLINE at 30d, delete at 90d
+# TODO Task 5: terraform init
+# TODO Task 6: terraform plan + apply
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "google" {
+  project = "kiwirail-data"
+  region  = "australia-southeast1"
+}
+
+resource "google_storage_bucket" "sensor_landing" {
+  name          = "kiwirail-sensor-landing"
+  location      = "AUSTRALIA-SOUTHEAST1"
+  force_destroy = true
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age    = 30
+      prefix = "raw/"
+    }
+    action {
+      type          = "SetStorageClass"
+      storage_class = "NEARLINE"
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      age    = 90
+      prefix = "raw/"
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+`
+    },
+    solutionExplanation:
+      "The landing zone is one bucket with three behaviours layered inside it: versioning (protect against bad overwrites), a cheap-tier transition at 30 days (cost control), and deletion at 90 (retention compliance). Compare the S3 lab: the workflow is identical, but Google nests region INTO the bucket and formats lifecycle as condition/action pairs."
+  },
+  {
+    id: "lab-15-gcp-network-quarantine",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "15. Google: Quarantining the Auto-Mode VPC",
+    subtitle: "Custom networks, regional subnets, tag-targeted firewall — intermediate",
+    difficulty: "Intermediate",
+    estimatedMinutes: 15,
+    xp: 350,
+    category: "Multi-Cloud",
+    iconName: "Network",
+    architectureDiagramType: "vpc_network",
+    scenario:
+      "REAL AUDIT: A config review at KiwiRail found the project's DEFAULT auto-mode VPC: every subnet has the same broad CIDR, implicit internet routes on every instance, and nobody remembers creating it. Auto-mode networks are a quarantine finding in any serious audit. Your ticket: build a custom-mode replacement — VPC, two regional subnets (one per team), and a firewall that only admits SSH from the ops bastion range.",
+    visualGoal:
+      "Build the custom VPC: network -> regional subnetworks -> tag-targeted firewall rules, and watch the graph arrange the dependency order.",
+    conceptTakeaway: [
+      "auto_create_subnetworks = false is THE switch that turns an auto-mode VPC into a custom one — subnets become explicit, regional and yours.",
+      "Google subnets are REGIONAL (a subnet exists in exactly one region) — the opposite mental model from AWS's AZ-scoped subnets.",
+      "Firewall rules target INSTANCES by network tags (target_tags / source_tags), not by security-group attachment like AWS."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare google_compute_network 'custom_vpc' with name \"custom-vpc\" and auto_create_subnetworks = false — the quarantine fix itself.",
+        hint: "Add:\nresource \"google_compute_network\" \"custom_vpc\" {\n  name                    = \"custom-vpc\"\n  auto_create_subnetworks = false\n}\nWith the flag false, Google creates NO subnets for you — every subnet that exists is one you declared, which is the point of the audit finding.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const n = main.match(/resource\s+"google_compute_network"\s+"custom_vpc"\s*\{([\s\S]*?)\n\}/);
+          return !!n && /auto_create_subnetworks\s*=\s*false/.test(n[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Declare a locals block computing env_label = \"prod\" (you'll use it in subnet names).",
+        hint: "Add:\nlocals {\n  env_label = \"prod\"\n}",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const l = main.match(/locals\s*\{([\s\S]*?)\n\}/);
+          return !!l && /env_label\s*=\s*"prod"/.test(l[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Declare google_compute_subnetwork 'snet_ops' in region australia-southeast1 with ip_cidr_range \"10.10.1.0/24\", wired to the network by REFERENCE.",
+        hint: "Add:\nresource \"google_compute_subnetwork\" \"snet_ops\" {\n  name          = \"snet-ops-\\${local.env_label}\"\n  region        = \"australia-southeast1\"\n  network       = google_compute_network.custom_vpc.id\n  ip_cidr_range = \"10.10.1.0/24\"\n}\nip_cidr_range — NOT cidr_block (that's the AWS name your hands will betray you with). The name uses the local through \\${...} interpolation inside quotes.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const s = main.match(/resource\s+"google_compute_subnetwork"\s+"snet_ops"\s*\{([\s\S]*?)\n\}/);
+          return !!s &&
+                 /region\s*=\s*"australia-southeast1"/.test(s[1]) &&
+                 /network\s*=\s*google_compute_network\.custom_vpc\.id/.test(s[1]) &&
+                 /ip_cidr_range\s*=\s*"10\.10\.1\.0\/24"/.test(s[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Declare google_compute_subnetwork 'snet_apps' in region australia-southeast2 with ip_cidr_range \"10.20.1.0/24\", also wired to custom_vpc.",
+        hint: "Same shape, second region:\nresource \"google_compute_subnetwork\" \"snet_apps\" {\n  name          = \"snet-apps-\\${local.env_label}\"\n  region        = \"australia-southeast2\"\n  network       = google_compute_network.custom_vpc.id\n  ip_cidr_range = \"10.20.1.0/24\"\n}\nTwo regions, two subnets — one VPC. In AWS you'd build per-AZ subnets instead; this regional model is Google's key structural difference.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const s = main.match(/resource\s+"google_compute_subnetwork"\s+"snet_apps"\s*\{([\s\S]*?)\n\}/);
+          return !!s &&
+                 /region\s*=\s*"australia-southeast2"/.test(s[1]) &&
+                 /network\s*=\s*google_compute_network\.custom_vpc\.id/.test(s[1]) &&
+                 /ip_cidr_range\s*=\s*"10\.20\.1\.0\/24"/.test(s[1]);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Declare google_compute_firewall 'allow_ssh_bastion' on the custom_vpc network: protocol tcp, ports [\"22\"], source_ranges [\"10.10.1.0/24\"], target_tags [\"ssh-ok\"].",
+        hint: "Add:\nresource \"google_compute_firewall\" \"allow_ssh_bastion\" {\n  name    = \"allow-ssh-bastion\"\n  network = google_compute_network.custom_vpc.name\n\n  allow {\n    protocol = \"tcp\"\n    ports    = [\"22\"]\n  }\n\n  source_ranges = [\"10.10.1.0/24\"]\n  target_tags   = [\"ssh-ok\"]\n}\nRead it as: traffic FROM the ops subnet MAY reach instances TAGGED ssh-ok on port 22. Everything else SSH is denied by default.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const f = main.match(/resource\s+"google_compute_firewall"\s+"allow_ssh_bastion"\s*\{([\s\S]*?)\n\}/);
+          if (!f) return false;
+          const b = f[1];
+          return /network\s*=\s*google_compute_network\.custom_vpc\.name/.test(b) &&
+                 /allow\s*\{[\s\S]*protocol\s*=\s*"tcp"[\s\S]*ports\s*=\s*\[\s*"22"\s*\]/.test(b) &&
+                 /source_ranges\s*=\s*\[\s*"10\.10\.1\.0\/24"\s*\]/.test(b) &&
+                 /target_tags\s*=\s*\[\s*"ssh-ok"\s*\]/.test(b);
+        }
+      },
+      {
+        id: "task-6",
+        description: "Declare google_compute_instance 'ops_bastion' in zone australia-southeast1-a: machine_type \"e2-small\", wired to snet_ops via a network_interface block, with tags [\"ssh-ok\"].",
+        hint: "Add:\nresource \"google_compute_instance\" \"ops_bastion\" {\n  name         = \"ops-bastion\"\n  machine_type = \"e2-small\"\n  zone         = \"australia-southeast1-a\"\n  tags         = [\"ssh-ok\"]\n\n  boot_disk {\n    initialize_params {\n      image = \"debian-cloud/debian-12\"\n    }\n  }\n\n  network_interface {\n    subnetwork = google_compute_subnetwork.snet_ops.id\n  }\n}\nThe tags list is what the firewall rule's target_tags matches against — the two are halves of one mechanism.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const i = main.match(/resource\s+"google_compute_instance"\s+"ops_bastion"\s*\{([\s\S]*?)\n\}/);
+          if (!i) return false;
+          const b = i[1];
+          return /machine_type\s*=\s*"e2-small"/.test(b) &&
+                 /zone\s*=\s*"australia-southeast1-a"/.test(b) &&
+                 /subnetwork\s*=\s*google_compute_subnetwork\.snet_ops\.id/.test(b) &&
+                 /tags\s*=\s*\[\s*"ssh-ok"\s*\]/.test(b);
+        }
+      },
+      {
+        id: "task-7",
+        description: "Run 'terraform plan' to see the dependency order (network before subnetworks, firewall referencing the network), then 'terraform apply'.",
+        hint: "Type 'terraform plan' — 4 creates — then 'terraform apply'.",
+        validationCheck: (_codeMap, state) => {
+          return state.resources.some((r) => r.type === "google_compute_network" && r.name === "custom_vpc") &&
+                 state.resources.some((r) => r.type === "google_compute_instance" && r.name === "ops_bastion");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.5: Custom-mode VPC quarantine (audit finding: default auto-mode VPC)
+# TODO Task 1: network custom-vpc with auto_create_subnetworks = false
+# TODO Task 2: locals env_label = "prod"
+# TODO Task 3: subnet snet_ops (australia-southeast1, 10.10.1.0/24)
+# TODO Task 4: subnet snet_apps (australia-southeast2, 10.20.1.0/24)
+# TODO Task 5: firewall allow_ssh_bastion (tcp 22 from ops subnet, target ssh-ok)
+# TODO Task 6: instance ops_bastion (e2-small, zone australia-southeast1-a, tags ssh-ok)
+# TODO Task 7: plan + apply
+
+provider "google" {
+  project = "kiwirail-data"
+  region  = "australia-southeast1"
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `provider "google" {
+  project = "kiwirail-data"
+  region  = "australia-southeast1"
+}
+
+resource "google_compute_network" "custom_vpc" {
+  name                    = "custom-vpc"
+  auto_create_subnetworks = false
+}
+
+locals {
+  env_label = "prod"
+}
+
+resource "google_compute_subnetwork" "snet_ops" {
+  name          = "snet-ops-\${local.env_label}"
+  region        = "australia-southeast1"
+  network       = google_compute_network.custom_vpc.id
+  ip_cidr_range = "10.10.1.0/24"
+}
+
+resource "google_compute_subnetwork" "snet_apps" {
+  name          = "snet-apps-\${local.env_label}"
+  region        = "australia-southeast2"
+  network       = google_compute_network.custom_vpc.id
+  ip_cidr_range = "10.20.1.0/24"
+}
+
+resource "google_compute_firewall" "allow_ssh_bastion" {
+  name    = "allow-ssh-bastion"
+  network = google_compute_network.custom_vpc.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["10.10.1.0/24"]
+  target_tags   = ["ssh-ok"]
+}
+
+resource "google_compute_instance" "ops_bastion" {
+  name         = "ops-bastion"
+  machine_type = "e2-small"
+  zone         = "australia-southeast1-a"
+  tags         = ["ssh-ok"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+    }
+  }
+
+  network_interface {
+    subnetwork = google_compute_subnetwork.snet_ops.id
+  }
+}
+`
+    },
+    solutionExplanation:
+      "The audit fix is the auto_create_subnetworks = false switch plus explicitly declared regional subnets. Google's structural differences from AWS all show up here: regional (not AZ-scoped) subnets, ip_cidr_range naming, firewall targeting by tags instead of SG attachment, and one VM wired through a network_interface block."
+  },
+  {
+    id: "lab-16-gcp-state-locking",
+    lesson: "Multi-Cloud",
+    level: 8,
+    title: "16. Google: Remote State in GCS After the Concurrent-Apply Collision",
+    subtitle: "GCS backend, bucket state locking, IAM-bound state bucket — intermediate",
+    difficulty: "Intermediate",
+    estimatedMinutes: 18,
+    xp: 400,
+    category: "Multi-Cloud",
+    iconName: "Lock",
+    architectureDiagramType: "s3_single",
+    scenario:
+      "REAL INCIDENT: Two engineers ran terraform apply on the same stack within 90 seconds. Local state files diverged; one apply silently deleted the other's newly created VM, and the 2 AM roll-back cost KiwiRail's freight-tracking dashboard a full day. Post-mortem action #1: ALL stacks move to a shared GCS backend with state locking, a dedicated state bucket, and least-privilege IAM on it.",
+    visualGoal:
+      "Build the state-management stack: a dedicated GCS bucket for terraform.tfstate with versioning enabled, a least-privilege IAM binding for the CI account, and the backend block wiring it up.",
+    conceptTakeaway: [
+      "The google backend is declared as backend \"gcs\" with bucket + prefix — prefix is the object path INSIDE the bucket (like S3's key).",
+      "GCS backends acquire a LOCK object during state operations — no separate lock database needed (unlike AWS's classic DynamoDB pairing).",
+      "State buckets get their OWN versioning + IAM: state is the crown jewels — losing or corrupting it loses every environment."
+    ],
+    tasks: [
+      {
+        id: "task-1",
+        description: "Declare google_storage_bucket 'tf_state_kiwirail' with name \"kiwirail-tfstate-prod\" and location \"AUSTRALIA-SOUTHEAST1\" — the dedicated state bucket.",
+        hint: "Add:\nresource \"google_storage_bucket\" \"tf_state_kiwirail\" {\n  name          = \"kiwirail-tfstate-prod\"\n  location      = \"AUSTRALIA-SOUTHEAST1\"\n  force_destroy = false\n}\nforce_destroy = false this time: Terraform must REFUSE to destroy a bucket holding the team's state — the exact opposite of the lab bucket's setting.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"tf_state_kiwirail"\s*\{([\s\S]*?)\n\}/);
+          return !!b &&
+                 /name\s*=\s*"kiwirail-tfstate-prod"/.test(b[1]) &&
+                 /location\s*=\s*"AUSTRALIA-SOUTHEAST1"/.test(b[1]);
+        }
+      },
+      {
+        id: "task-2",
+        description: "Enable versioning on the state bucket — a corrupted state must be recoverable to any earlier point.",
+        hint: "Inside the state bucket block:\n  versioning {\n    enabled = true\n  }\nSame versioning block as Lab 7.4, but here the payload is terraform.tfstate itself — every apply overwrites it, so generations ARE the undo history.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"tf_state_kiwirail"\s*\{([\s\S]*?)\n\}/);
+          return !!b && /versioning\s*\{[\s\S]*enabled\s*=\s*true/.test(b[1]);
+        }
+      },
+      {
+        id: "task-3",
+        description: "Declare google_project_iam_member 'ci_state_writer' granting roles/storage.objectAdmin on the project to the CI service account \"terraform-ci@kiwirail-data.iam.gserviceaccount.com\".",
+        hint: "Add:\nresource \"google_project_iam_member\" \"ci_state_writer\" {\n  project = \"kiwirail-data\"\n  role    = \"roles/storage.objectAdmin\"\n  member  = \"serviceAccount:terraform-ci@kiwirail-data.iam.gserviceaccount.com\"\n}\nobjectAdmin on the project covers the state bucket's objects (create/read/delete state objects) — and STOPS there: no compute, no networking. Least privilege on state means CI can rewrite state but not your cluster.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const iam = main.match(/resource\s+"google_project_iam_member"\s+"ci_state_writer"\s*\{([\s\S]*?)\n\}/);
+          return !!iam &&
+                 /role\s*=\s*"roles\/storage\.objectAdmin"/.test(iam[1]) &&
+                 /member\s*=\s*"serviceAccount:terraform-ci@kiwirail-data\.iam\.gserviceaccount\.com"/.test(iam[1]);
+        }
+      },
+      {
+        id: "task-4",
+        description: "Configure the remote backend: inside the terraform block, backend \"gcs\" with bucket \"kiwirail-tfstate-prod\" and prefix \"freight/tracker/prod\".",
+        hint: "Add:\nterraform {\n  backend \"gcs\" {\n    bucket = \"kiwirail-tfstate-prod\"\n    prefix = \"freight/tracker/prod\"\n  }\n}\nprefix is the path INSIDE the bucket where this stack's state lands — you invent it, team convention <org>/<app>/<env>, exactly like S3's key argument.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          const be = main.match(/backend\s+"gcs"\s*\{([\s\S]*?)\n\s*\}/);
+          return !!be &&
+                 /bucket\s*=\s*"kiwirail-tfstate-prod"/.test(be[1]) &&
+                 /prefix\s*=\s*"freight\/tracker\/prod"/.test(be[1]);
+        }
+      },
+      {
+        id: "task-5",
+        description: "Run 'terraform init' to migrate the stack to the simulated remote GCS backend.",
+        hint: "Type 'terraform init' in the terminal after the backend block is complete — the backend migration happens on init.",
+        validationCheck: (codeMap) => {
+          const main = codeMap["main.tf"] || "";
+          return /backend\s+"gcs"\s*\{/s.test(main) && /prefix\s*=\s*"freight\/tracker\/prod"/.test(main);
+        }
+      },
+      {
+        id: "task-6",
+        description: "Add tag ManagedBy = \"Terraform\" to the state bucket, then run 'terraform plan' followed by 'terraform apply' to provision the state stack.",
+        hint: "Inside the state bucket block:\n  tags = {\n    ManagedBy = \"Terraform\"\n  }\nThen 'terraform plan' (1 create... the IAM binding applies too) and 'terraform apply'.",
+        validationCheck: (codeMap, state) => {
+          const main = codeMap["main.tf"] || "";
+          const b = main.match(/resource\s+"google_storage_bucket"\s+"tf_state_kiwirail"\s*\{([\s\S]*?)\n\}/);
+          const bucketOk = !!b && /\bManagedBy\s*=\s*"Terraform"/.test(b[1]);
+          return bucketOk && state.resources.some((r) => r.type === "google_storage_bucket" && r.name === "tf_state_kiwirail");
+        }
+      }
+    ],
+    starterFiles: {
+      "main.tf": `# Lab 7.6: Remote state in GCS (post-mortem: concurrent apply collision)
+# TODO Task 1: state bucket kiwirail-tfstate-prod (AUSTRALIA-SOUTHEAST1, force_destroy FALSE)
+# TODO Task 2: versioning on the state bucket
+# TODO Task 3: IAM binding — CI service account gets roles/storage.objectAdmin
+# TODO Task 4: backend "gcs" (bucket + prefix freight/tracker/prod)
+# TODO Task 5: terraform init (backend migration)
+# TODO Task 6: ManagedBy tag + plan + apply
+
+provider "google" {
+  project = "kiwirail-data"
+  region  = "australia-southeast1"
+}
+`
+    },
+    solutionFiles: {
+      "main.tf": `terraform {
+  backend "gcs" {
+    bucket = "kiwirail-tfstate-prod"
+    prefix = "freight/tracker/prod"
+  }
+}
+
+provider "google" {
+  project = "kiwirail-data"
+  region  = "australia-southeast1"
+}
+
+resource "google_storage_bucket" "tf_state_kiwirail" {
+  name          = "kiwirail-tfstate-prod"
+  location      = "AUSTRALIA-SOUTHEAST1"
+  force_destroy = false
+
+  versioning {
+    enabled = true
+  }
+
+  tags = {
+    ManagedBy = "Terraform"
+  }
+}
+
+resource "google_project_iam_member" "ci_state_writer" {
+  project = "kiwirail-data"
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:terraform-ci@kiwirail-data.iam.gserviceaccount.com"
+}
+`
+    },
+    solutionExplanation:
+      "The collision's fix inverts Lab 9's AWS shape: same remote-state reasoning (shared backend, invented path, least-privilege identity), but Google pairs the bucket WITH locking built in — the backend acquires a lock object during state operations instead of needing a DynamoDB table. Versioning on the bucket is the recovery plan for the worst-case corruption the collision caused."
   }
 ];

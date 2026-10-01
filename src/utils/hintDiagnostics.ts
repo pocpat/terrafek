@@ -342,6 +342,68 @@ export function diagnoseTask(ctx: HintContext): HintDiagnosis[] {
     }
   }
 
+  // ── Multi-cloud (Phase 4) near-miss classes ────────────────────────────────
+
+  // 14. Azure region: labs use region-name strings ("West Europe"), not AWS-style codes
+  if (/provider\s+"azurerm"/.test(all) && /region\s*=\s*"[\w-]+"/.test(all) && !/features\s*\{/.test(all)) {
+    out.push({
+      severity: "warning",
+      message: 'Your azurerm provider block has "region = ..." — Azure does not have a region argument. Regions are set per-resource with location = "...", and the provider needs a features {} block.',
+      fix: 'provider "azurerm" {\n  features {}\n}',
+    });
+  }
+
+  // 15. azurerm block missing the mandatory features {} block (very common first-lab bug)
+  const azProvider = all.match(/provider\s+"azurerm"\s*\{([\s\S]*?)\n\}/);
+  if (azProvider && !azProvider[1].includes("features")) {
+    out.push({
+      severity: "error",
+      message: 'The azurerm provider block is missing its features {} block — the Azure provider refuses to run without it (real Terraform errors with "Missing required argument: features").',
+      fix: 'provider "azurerm" {\n  features {}\n}',
+    });
+  }
+
+  // 16. AWS muscle-memory on Google: cidr_block instead of ip_cidr_range
+  if (/google_compute_subnetwork/.test(all) && /cidr_block\s*=/m.test(all) && !/ip_cidr_range\s*=/m.test(all)) {
+    const cidrLine = all.match(/cidr_block\s*=\s*"[^\"]*"/);
+    out.push({
+      severity: "error",
+      message: `google_compute_subnetwork has no "cidr_block" argument — that's AWS naming. Google calls it ip_cidr_range.${cidrLine ? ` Change ${cidrLine[0]} to use ip_cidr_range.` : ""}`,
+      fix: "Replace cidr_block with ip_cidr_range, e.g.  ip_cidr_range = \"10.1.0.0/24\"",
+    });
+  }
+
+  // 17. Google subnet wired by NAME string instead of a reference
+  if (/google_compute_subnetwork[\s\S]*?network\s*=\s*"([^"]+)"/.test(all) && !/network\s*=\s*google_compute_network\./.test(all)) {
+    out.push({
+      severity: "error",
+      message: 'network = "<name>" points at the network by a TEXT string. Google resources are wired with REFERENCES: network = google_compute_network.<name>.id, so Terraform knows the network must exist first.',
+      fix: "network = google_compute_network.<local-name>.id",
+    });
+  }
+
+  // 18. Google firewall rule with AWS naming (aws_security_group thinking)
+  if (/google_compute_firewall/.test(all) && (/security_group/.test(all) || /\bingress\s*\{/.test(main))) {
+    out.push({
+      severity: "warning",
+      message: 'Google Cloud has no nested "ingress" blocks and no security groups — google_compute_firewall uses allow { ... } blocks with ports and protocol, targeted by source_ranges and target_tags.',
+      fix: 'allow {\n  protocol = "tcp"\n  ports    = ["80"]\n}',
+    });
+  }
+
+  // 19. Azure VM wired directly to a subnet — the NIC hop is mandatory
+  // (only when subnet_id sits INSIDE the VM block; the NIC's own subnet_id is correct)
+  const vmBlocks = [...all.matchAll(/resource\s+"azurerm_(?:windows|linux)_virtual_machine"\s+"[^"]+"\s*\{([\s\S]*?)\n\}/g)];
+  for (const [, vmBody] of vmBlocks) {
+    if (/\bsubnet_id\s*=/.test(vmBody)) {
+      out.push({
+        severity: "error",
+        message: 'Azure VMs do not attach to subnets directly — the subnet_id argument belongs on the azurerm_network_interface, and the VM attaches to THAT NIC via network_interface_ids.',
+        fix: "network_interface_ids = [azurerm_network_interface.<name>.id]",
+      });
+    }
+  }
+
   // Most blocking problems first: errors before warnings, discovery order kept
   const sorted = [...out].sort((a, b) => (a.severity === "error" ? -1 : 1) - (b.severity === "error" ? -1 : 1));
   return sorted;

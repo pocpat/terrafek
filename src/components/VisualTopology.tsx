@@ -115,11 +115,20 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
     safeSetItem("tf_topology_animated", String(val));
   };
 
-  // Group resources into hierarchy
-  const vpcResources = resources.filter((r) => r.type === "aws_vpc");
-  const subnetResources = resources.filter((r) => r.type === "aws_subnet");
-  const computeResources = resources.filter((r) => r.type === "aws_instance");
-  const storageResources = resources.filter((r) => r.type === "aws_s3_bucket");
+  // Group resources into hierarchy (multi-cloud: AWS + Azure + Google Phase 4 labs)
+  const vpcResources = resources.filter((r) =>
+    r.type === "aws_vpc" || r.type === "azurerm_virtual_network" || r.type === "google_compute_network"
+  );
+  const subnetResources = resources.filter((r) =>
+    r.type === "aws_subnet" || r.type === "azurerm_subnet" || r.type === "google_compute_subnetwork"
+  );
+  const computeResources = resources.filter((r) =>
+    r.type === "aws_instance" || r.type.endsWith("_virtual_machine") || r.type === "google_compute_instance"
+  );
+  const storageResources = resources.filter((r) =>
+    r.type === "aws_s3_bucket" || r.type === "azurerm_storage_account" || r.type === "google_storage_bucket"
+  );
+  const rgResources = resources.filter((r) => r.type === "azurerm_resource_group");
   const dbResources = resources.filter((r) => r.type.includes("db") || r.type.includes("rds"));
   const sgResources = resources.filter((r) => r.type.includes("security_group"));
   const lbResources = resources.filter((r) => r.type.includes("lb") || r.type.includes("alb"));
@@ -129,6 +138,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
       !subnetResources.includes(r) &&
       !computeResources.includes(r) &&
       !storageResources.includes(r) &&
+      !rgResources.includes(r) &&
       !dbResources.includes(r) &&
       !sgResources.includes(r) &&
       !lbResources.includes(r)
@@ -317,6 +327,41 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
             className="transition-transform duration-200 ease-out space-y-5 w-full max-w-4xl relative z-10"
             style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center" }}
           >
+            {/* 0. Azure Resource Group — deployment boundary band (Phase 4 Azure labs) */}
+            {rgResources.length > 0 && (
+              <div className={`border rounded-2xl p-4 shadow-lg transition-all ${
+                isDark
+                  ? "bg-gradient-to-br from-[#071a2a]/95 via-[#061826]/90 to-[#040f1a]/95 border-blue-500/40"
+                  : "bg-gradient-to-br from-sky-50/80 via-blue-50/50 to-indigo-50/30 border-blue-200/90"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-6 h-6 rounded-lg border flex items-center justify-center ${
+                      isDark ? "bg-blue-950/90 text-blue-300 border-blue-500/60" : "bg-blue-100 text-blue-800 border-blue-300/80"
+                    }`}>
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <span className={`text-xs font-serif font-bold tracking-tight ${isDark ? "text-blue-200" : "text-blue-950"}`}>
+                      Azure Resource Group
+                    </span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border font-semibold ${
+                      isDark ? "bg-blue-950/80 border-blue-700/60 text-blue-300" : "bg-white border-blue-200 text-blue-900"
+                    }`}>
+                      {rgResources[0]?.name}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                    isDark ? "bg-blue-950/60 text-blue-300 border-blue-700/60" : "bg-blue-100/80 text-blue-800 border-blue-200"
+                  }`}>
+                    {rgResources[0]?.attributes?.location || "region"}
+                  </span>
+                </div>
+                <div className={`text-[10.5px] font-sans ${isDark ? "text-blue-400/70" : "text-blue-800/70"}`}>
+                  Azure deployment boundary — every resource in these labs is provisioned INSIDE this group (that's why their <span className="font-mono">resource_group_name</span> points here).
+                </div>
+              </div>
+            )}
+
             {/* 1. Global / Standalone Storage Tier (S3) - Green/Teal Glowing Card */}
             {storageResources.length > 0 && (
               <div className={`border rounded-2xl p-4 shadow-lg transition-all ${
@@ -332,7 +377,13 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                       <HardDrive className="w-3.5 h-3.5" />
                     </div>
                     <span className={`text-xs font-serif font-bold tracking-tight ${isDark ? "text-teal-200" : "text-amber-950"}`}>
-                      Global Object Storage Tier (AWS S3)
+                      {storageResources.every((r) => r.type === "aws_s3_bucket")
+                        ? "Global Object Storage Tier (AWS S3)"
+                        : storageResources.every((r) => r.type === "azurerm_storage_account")
+                        ? "Storage Tier (Azure Storage Account)"
+                        : storageResources.every((r) => r.type === "google_storage_bucket")
+                        ? "Storage Tier (Google Cloud Storage)"
+                        : "Object Storage Tier (Multi-Cloud)"}
                     </span>
                   </div>
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
@@ -439,7 +490,11 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                             </span>
                           </div>
                           <div className={`text-[10px] font-mono ${isDark ? "text-cyan-400/70" : "text-sky-700/80"}`}>
-                            aws_vpc isolated network boundary
+                            {vpc.type === "azurerm_virtual_network"
+                              ? "azurerm_virtual_network boundary — RG-scoped IP space"
+                              : vpc.type === "google_compute_network"
+                              ? "google_compute_network — global VPC, regional subnets"
+                              : "aws_vpc isolated network boundary"}
                           </div>
                         </div>
                       </div>
@@ -551,7 +606,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                                                 {instance.name}
                                               </div>
                                               <div className={`text-[10px] font-mono ${isDark ? "text-orange-400/80" : "text-indigo-700/80"}`}>
-                                                {instance.attributes.instance_type || "t3.micro"}
+                                                {instance.attributes.instance_type || instance.attributes.machine_type || instance.attributes.size || "e2-medium"}
                                               </div>
                                             </div>
                                           </div>
@@ -611,7 +666,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                                         {instance.name}
                                       </div>
                                       <div className={`text-[10px] font-mono ${isDark ? "text-orange-400/80" : "text-indigo-700"}`}>
-                                        {instance.attributes.instance_type || "t3.micro"}
+                                        {instance.attributes.instance_type || instance.attributes.machine_type || instance.attributes.size || "e2-medium"}
                                       </div>
                                     </div>
                                   </div>
@@ -638,7 +693,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                     <div className={`p-1 rounded ${isDark ? "bg-orange-950 text-orange-300" : "bg-indigo-100 text-indigo-800"}`}>
                       <Server className="w-3.5 h-3.5" />
                     </div>
-                    <span>Compute Tier (Standalone EC2)</span>
+                    <span>Compute Tier (Standalone {computeResources[0]?.provider === "google" ? "GCE" : computeResources[0]?.provider === "azurerm" ? "Azure VM" : "EC2"})</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {computeResources.map((instance) => {
@@ -668,7 +723,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                               <div>
                                 <div className={`text-xs font-bold font-mono ${isDark ? "text-orange-100" : "text-indigo-950"}`}>{instance.name}</div>
                                 <div className={`text-[10px] font-mono ${isDark ? "text-orange-400/80" : "text-indigo-700"}`}>
-                                  {instance.attributes.instance_type || "t3.micro"}
+                                  {instance.attributes.instance_type || instance.attributes.machine_type || instance.attributes.size || "e2-medium"}
                                 </div>
                               </div>
                             </div>
@@ -713,7 +768,7 @@ export const VisualTopology: React.FC<VisualTopologyProps> = ({
                           <div>
                             <div className={`text-xs font-bold font-mono ${isDark ? "text-blue-100" : "text-purple-950"}`}>{db.name}</div>
                             <div className={`text-[10px] font-mono ${isDark ? "text-blue-400/80" : "text-purple-800/80"}`}>
-                              {db.attributes.engine || "postgres"} • {db.attributes.instance_class || "db.t3.medium"}
+                              {db.attributes.engine || db.attributes.database_version || "postgres"} • {db.attributes.instance_class || db.attributes.machine_type || (db.provider === "google" ? "db-f1-micro" : "db.t3.medium")}
                             </div>
                           </div>
                         </div>

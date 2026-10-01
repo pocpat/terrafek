@@ -123,7 +123,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
 
   // Build phase arrays from the single source-of-truth curriculum sequence.
   // This ensures the Dashboard phase cards always match the recommendation logic.
-  const buildPhaseItems = (phaseNum: 1 | 2 | 3) =>
+  const buildPhaseItems = (phaseNum: 1 | 2 | 3 | 4) =>
     CURRICULUM_ORDER.filter((item) => item.phase === phaseNum).map((item) => {
       // Global order number (1..17 across the whole curriculum) — shown as a
       // pill on each card so the reading order is obvious in a 2-column grid.
@@ -152,12 +152,13 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
   const phase1Items = buildPhaseItems(1);
   const phase2Items = buildPhaseItems(2);
   const phase3Items = buildPhaseItems(3);
+  const phase4Items = buildPhaseItems(4);
 
   // PHASE RESET — "like I never did it": removes a phase's completions AND
   // saved code memory, resets navigation to that phase's first lesson, then
   // reloads. In-app (no console needed) so it can't be defeated by copy-paste
   // mistakes or stale tabs re-persisting old state.
-  const phaseContentIds = (phaseNum: 1 | 2 | 3) => {
+  const phaseContentIds = (phaseNum: 1 | 2 | 3 | 4) => {
     const items = CURRICULUM_ORDER.filter((c) => c.phase === phaseNum);
     return {
       walkthroughIds: items.filter((c) => c.type === "walkthrough").map((c) => WALKTHROUGHS_DATA[c.index].id),
@@ -166,8 +167,8 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
       firstLabIdx: items.find((c) => c.type === "lab")?.index ?? 0,
     };
   };
-  const [armedPhase, setArmedPhase] = useState<1 | 2 | 3 | null>(null);
-  const handlePhaseReset = (phaseNum: 1 | 2 | 3) => {
+  const [armedPhase, setArmedPhase] = useState<1 | 2 | 3 | 4 | null>(null);
+  const handlePhaseReset = (phaseNum: 1 | 2 | 3 | 4) => {
     if (armedPhase !== phaseNum) {
       setArmedPhase(phaseNum); // first click arms — second click executes
       return;
@@ -370,7 +371,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10.5px] uppercase font-mono font-bold text-stone-500 tracking-wider">
-                    Phase 1 of 3
+                    Phase 1 of 4
                   </span>
                   <h3 className="text-base font-serif font-bold text-stone-900">
                     Foundations & HCL Syntax Fundamentals
@@ -515,7 +516,7 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10.5px] uppercase font-mono font-bold text-stone-500 tracking-wider">
-                    Phase 2 of 3
+                    Phase 2 of 4
                   </span>
                   <h3 className="text-base font-serif font-bold text-stone-900">
                     State Engine, DAG Graph & Lifecycle Automation
@@ -658,14 +659,14 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10.5px] uppercase font-mono font-bold text-stone-500 tracking-wider">
-                    Phase 3 of 3
+                    Phase 3 of 4
                   </span>
                   <h3 className="text-base font-serif font-bold text-stone-900">
                     Modular Infrastructure & Production Multi-Tier Cloud
                   </h3>
                 </div>
                 <div className="flex items-center space-x-2.5">
-                  <span className="text-xs font-mono text-stone-500">4 Modules</span>
+                  <span className="text-xs font-mono text-stone-500">6 Modules</span>
                   <button
                     onClick={() => handlePhaseReset(3)}
                     className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
@@ -740,6 +741,147 @@ export const CurriculumDashboard: React.FC<CurriculumDashboardProps> = ({
                       <div
                         key={lab.id}
                         className={`bg-white border rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-3 ${
+                          isDone ? "border-emerald-200 bg-emerald-50/20" : "border-stone-200"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-bold border border-amber-200 uppercase">
+                                Hands-On Lab
+                              </span>
+                            </span>
+                            <span className="text-[11px] font-serif font-bold text-amber-700">+{lab.xp} XP</span>
+                          </div>
+                          <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
+                            {formatLabTitle(LABS_DATA, lab.id)}
+                          </h4>
+                          <p className="text-xs text-stone-600 font-sans line-clamp-2">
+                            {lab.subtitle}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isDone ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Passed ✓</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{lab.tasks.length} Tasks</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => onStartLab(item.index)}
+                            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+                          >
+                            <span>{isDone ? "Review" : "Launch Lab"}</span>
+                            <Play className="w-3 h-3 fill-white" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            </div>
+
+            {/* Phase 4 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10.5px] uppercase font-mono font-bold text-stone-500 tracking-wider">
+                    Phase 4 of 4
+                  </span>
+                  <h3 className="text-base font-serif font-bold text-stone-900">
+                    Multi-Cloud Engineering: Azure & Google Cloud
+                  </h3>
+                </div>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-mono text-stone-500">6 Modules</span>
+                  <button
+                    onClick={() => handlePhaseReset(4)}
+                    className={`px-2 py-0.5 rounded-md border text-[10.5px] font-semibold font-sans transition-colors cursor-pointer ${
+                      armedPhase === 4
+                        ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600"
+                        : "bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200"
+                    }`}
+                    title={armedPhase === 4 ? "Click again to confirm — clears Phase 4 completions and saved code" : "Reset Phase 4 progress to 'never done'"}
+                  >
+                    {armedPhase === 4 ? "Confirm reset" : "Reset Phase 4"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {phase4Items.map((item, idx) => {
+                  if (item.type === "walkthrough") {
+                    const isPassed = completedWalkthroughIds.includes(WALKTHROUGHS_DATA[item.index].id);
+                    const isCurrent = currentWalkthroughIndex === item.index;
+                    return (
+                      <div
+                        key={`p4-wt-${item.index}`}
+                        className={`bg-white border rounded-2xl p-4 shadow-2xs transition-all hover:border-stone-400 flex flex-col justify-between space-y-3 ${
+                          isPassed
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : isCurrent
+                            ? "border-stone-800 ring-1 ring-stone-800/20"
+                            : "border-stone-200"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center space-x-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-mono text-[10px] font-bold" title={`Order ${item.orderNo} of ${CURRICULUM_ORDER.length} in the course sequence`}>
+                                #{item.orderNo}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200 uppercase">
+                                Visual Walkthrough
+                              </span>
+                            </span>
+                            <div className="flex items-center space-x-1 text-[11px] text-stone-500 font-mono">
+                              <Clock className="w-3 h-3" />
+                              <span>{item.mins}m</span>
+                            </div>
+                          </div>
+                          <h4 className="text-sm font-serif font-bold text-stone-900 leading-snug">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-stone-600 font-sans line-clamp-2">
+                            {item.subtitle}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                          <div className="flex items-center space-x-1 text-xs">
+                            {isPassed ? (
+                              <span className="text-emerald-700 font-medium flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Completed</span>
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 font-mono">{item.category}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => onStartWalkthrough(item.index)}
+                            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors"
+                          >
+                            <span>Open</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    const lab = item.lab;
+                    const isDone = completedLabIds.includes(lab.id);
+                    return (
+                      <div
+                        key={lab.id}
+                        className={`bg-white border rounded-2xl p-4 shadow-2xs transition-all hover:border-stone-400 flex flex-col justify-between space-y-3 ${
                           isDone ? "border-emerald-200 bg-emerald-50/20" : "border-stone-200"
                         }`}
                       >

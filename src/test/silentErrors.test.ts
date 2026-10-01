@@ -395,3 +395,128 @@ describe("round 10 — lab #18 task-6 'how do I know what to write' (user-report
     expect(out.filter((d) => d.message.includes("is missing")).length).toBe(0);
   });
 });
+
+describe("round 11 — Phase 4 multi-cloud silent-error classes", () => {
+  it("flags unknown azure type with suggestion: azurerm_storage_accont", () => {
+    const issues = checkHclSyntax('resource "azurerm_storage_accont" "docs" {\n  name = "stdocs"\n}');
+    const issue = issues.find((i) => i.message.includes("not a known Azure resource type"));
+    expect(issue).toBeTruthy();
+    expect(issue!.fixHint).toContain("azurerm_storage_account");
+  });
+
+  it("flags unknown google type with suggestion: google_compute_instence", () => {
+    const issues = checkHclSyntax('resource "google_compute_instence" "vm" {\n  name = "vm"\n}');
+    const issue = issues.find((i) => i.message.includes("not a known Google resource type"));
+    expect(issue).toBeTruthy();
+    expect(issue!.fixHint).toContain("google_compute_instance");
+  });
+
+  it("flags wrong-cased azure/google namespaces: AZURERM_ and GOOGLE_", () => {
+    for (const code of ['resource "AZURERM_STORAGE_ACCOUNT" "docs" {', 'resource "GOOGLE_STORAGE_BUCKET" "b" {']) {
+      expect(checkHclSyntax(code).some((i) => i.severity === "error")).toBe(true);
+    }
+  });
+
+  it("does NOT flag correct azure/google types", () => {
+    const code = 'resource "azurerm_resource_group" "rg" {\n  name     = "rg"\n  location = "West Europe"\n}\n\nresource "google_storage_bucket" "b" {\n  name     = "bucket-x"\n  location = "AUSTRALIA-SOUTHEAST1"\n}';
+    expect(checkHclSyntax(code).filter((i) => i.severity === "error")).toHaveLength(0);
+  });
+
+  it("validate fails on azurerm_resource_group missing location", () => {
+    const result = runTerraformValidate({
+      "main.tf": 'provider "azurerm" {\n  features {}\n}\n\nresource "azurerm_resource_group" "rg" {\n  name = "rg"\n}',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('"location" is required for "azurerm_resource_group.rg"'))).toBe(true);
+  });
+
+  it("validate fails on google_compute_subnetwork missing region/ip_cidr_range/network", () => {
+    const result = runTerraformValidate({
+      "main.tf": 'resource "google_compute_subnetwork" "snet" {\n  name = "snet"\n}',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('"region"'))).toBe(true);
+  });
+
+  it("does NOT flag complete azure/google blocks", () => {
+    const result = runTerraformValidate({
+      "main.tf": 'provider "azurerm" {\n  features {}\n}\n\nresource "azurerm_resource_group" "rg" {\n  name     = "rg"\n  location = "West Europe"\n}',
+    });
+    expect(result.errors.length).toBe(0);
+  });
+
+  it("azurerm provider without features {} gets a SPECIFIC hint diagnosis", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'provider "azurerm" {\n  region = "westeurope"\n}' },
+      labId: "lab-11-azure-durable-docs",
+    });
+    expect(out.some((d) => d.message.includes("features {}"))).toBe(true);
+    expect(out.some((d) => d.message.includes("Azure does not have a region argument"))).toBe(true);
+  });
+
+  it("cidr_block inside google_compute_subnetwork names the AWS-naming mistake", () => {
+    const out = diagnoseTask({
+      files: { "main.tf": 'resource "google_compute_subnetwork" "snet" {\n  cidr_block = "10.1.0.0/24"\n}' },
+      labId: "lab-15-gcp-network-quarantine",
+    });
+    expect(out.some((d) => d.message.includes("ip_cidr_range"))).toBe(true);
+  });
+
+  it("subnet_id inside an azure VM block names the NIC hop", () => {
+    const out = diagnoseTask({
+      files: {
+        "main.tf": 'resource "azurerm_windows_virtual_machine" "vm" {\n  subnet_id = azurerm_subnet.fin_snet.id\n}',
+      },
+      labId: "lab-12-azure-perimeter-hardening",
+    });
+    expect(out.some((d) => d.message.includes("network_interface"))).toBe(true);
+  });
+
+  it("no false positive: the NIC's own subnet_id and a features-complete provider", () => {
+    const out = diagnoseTask({
+      files: {
+        "main.tf": 'provider "azurerm" {\n  features {}\n}\n\nresource "azurerm_network_interface" "nic" {\n  ip_configuration {\n    subnet_id = azurerm_subnet.s.id\n  }\n}',
+      },
+      labId: "lab-12-azure-perimeter-hardening",
+    });
+    expect(out.filter((d) => d.message.includes("do not attach to subnets directly")).length).toBe(0);
+    expect(out.filter((d) => d.message.includes("features")).length).toBe(0);
+  });
+
+  it("every Phase 4 lab is solvable by its own solutionFiles (audit gate in miniature)", () => {
+    const mc = LABS_DATA.filter((l) => l.category === "Multi-Cloud");
+    expect(mc.length).toBe(6);
+    // state-gated tasks (validationCheck reads the live 2nd arg) can't be
+    // verified against a static empty state — same exclusion as audit-golden-rules
+    const usesStateArg = (fn: Function): boolean => {
+      const src = String(fn);
+      const names = (/\(([^)]*)\)/.exec(src)?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean);
+      if (names.length < 2) return false;
+      return src.includes(names[1]);
+    };
+    for (const lab of mc) {
+      for (const task of lab.tasks) {
+        if (usesStateArg(task.validationCheck)) continue;
+        let ok = false;
+        try {
+          ok = !!task.validationCheck(lab.solutionFiles, createEmptyState(), []);
+        } catch { ok = false; }
+        expect(`${lab.id}/${task.id}: ${ok}`).toBe(`${lab.id}/${task.id}: true`);
+      }
+    }
+  });
+
+  it("no Phase 4 task passes on its own untouched starter files (hands-on rule)", () => {
+    const mc = LABS_DATA.filter((l) => l.category === "Multi-Cloud");
+    for (const lab of mc) {
+      for (const task of lab.tasks) {
+        let untouched = false;
+        try {
+          untouched = !!task.validationCheck(lab.starterFiles, createEmptyState(), []);
+        } catch { untouched = false; }
+        expect(`${lab.id}/${task.id}: ${untouched}`).toBe(`${lab.id}/${task.id}: false`);
+        void task;
+      }
+    }
+  });
+});

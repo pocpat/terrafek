@@ -154,13 +154,8 @@ describe('errorAnalyticsEngine', () => {
     });
 
     it('recommends a walkthrough when all labs are completed', () => {
-      // All 10 labs completed — need all lab IDs to trigger walkthrough recommendation
-      const allLabIds = [
-        'lab-1-first-resource', 'lab-2-core-workflow', 'lab-3-variables-locals',
-        'lab-4-networking-dependencies', 'lab-5-outputs-sensitive', 'lab-6-state-and-drift',
-        'lab-7-count-and-for-each', 'lab-8-modular-architecture', 'lab-9-remote-state-locking',
-        'lab-10-production-hero',
-      ];
+      // All 16 labs completed — need all lab IDs to trigger walkthrough recommendation
+      const allLabIds = LABS_DATA.map((l) => l.id);
       // All walkthroughs formally completed too, so the refresher branch fires.
       const allWalkthroughIds = [
         'concept-providers', 'concept-resources', 'concept-variables', 'concept-state',
@@ -175,17 +170,19 @@ describe('errorAnalyticsEngine', () => {
 describe("hero metrics math (user-reported 59% + 10/10 bug)", () => {
   const ALL_LABS = LABS_DATA.map((l) => l.id);
   const ALL_WT = WALKTHROUGHS_DATA.map((w) => w.id);
+  // 16 labs + 8 walkthroughs = 24 curriculum items (18 before Phase 4)
+  const TOTAL_LESSONS = LABS_DATA.length + WALKTHROUGHS_DATA.length;
 
   it("progress counts walkthroughs by completion FLAG, not reading position", () => {
-    // 10 labs done, 3 walkthroughs flagged done, reading position 0 (reset)
+    // all labs done, 3 walkthroughs flagged done, reading position 0 (reset)
     const r = calculateCourseProgress(ALL_LABS, ALL_WT.slice(0, 3), [], 0, 999, []);
-    expect(r.completionPercentage).toBe(Math.round((13 / 18) * 100)); // 72
+    expect(r.completionPercentage).toBe(Math.round(((LABS_DATA.length + 3) / TOTAL_LESSONS) * 100));
   });
 
   it("reading position ahead of flags no longer inflates progress", () => {
-    // 10 labs done, only 1 walkthrough flagged, but reader scrolled to wt idx 6
+    // all labs done, only 1 walkthrough flagged, but reader scrolled to wt idx 6
     const r = calculateCourseProgress(ALL_LABS, [ALL_WT[0]], [], 6, 999, []);
-    expect(r.completionPercentage).toBe(Math.round((11 / 18) * 100)); // 61
+    expect(r.completionPercentage).toBe(Math.round(((LABS_DATA.length + 1) / TOTAL_LESSONS) * 100));
   });
 
   it("dedupes healed storage arrays (no inflation from double entries)", () => {

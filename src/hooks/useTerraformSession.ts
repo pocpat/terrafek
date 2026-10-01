@@ -310,11 +310,18 @@ Main commands:
         setIsExecuting(true);
         setTimeout(() => {
           setIsExecuting(false);
+          // Provider-aware init output: the plugin lines must match the cloud the
+          // learner's code actually targets (azurerm/google labs would otherwise
+          // see hashicorp/aws installing, contradicting their own files).
+          const allCode = Object.values(filesRef.current).join("\n");
+          const pluginLines = /provider\s+"azurerm"|azurerm_/.test(allCode)
+            ? `|- Finding hashicorp/azurerm versions matching "~> 3.0"...\n|- Installing hashicorp/azurerm v3.117.0...\n|- Installed hashicorp/azurerm v3.117.0 (signed by HashiCorp)`
+            : /provider\s+"google"|google_/.test(allCode)
+            ? `|- Finding hashicorp/google versions matching "~> 5.0"...\n|- Installing hashicorp/google v5.44.0...\n|- Installed hashicorp/google v5.44.0 (signed by HashiCorp)`
+            : `|- Finding hashicorp/aws versions matching "~> 5.0"...\n|- Installing hashicorp/aws v5.42.0...\n|- Installed hashicorp/aws v5.42.0 (signed by HashiCorp)`;
           const initOutput = `Initializing the backend...
 Initializing provider plugins...
-|- Finding hashicorp/aws versions matching "~> 5.0"...
-|- Installing hashicorp/aws v5.42.0...
-|- Installed hashicorp/aws v5.42.0 (signed by HashiCorp)
+${pluginLines}
 
 Terraform has created a lock file .terraform.lock.hcl to record the provider selections it made above.
 

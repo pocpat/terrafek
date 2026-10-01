@@ -84,7 +84,7 @@ export interface LabDefinition {
   difficulty: "Beginner" | "Intermediate" | "Advanced" | "Hero";
   estimatedMinutes: number;
   xp: number;
-  category: "Foundations" | "Core Workflow" | "Variables & State" | "Networking & Graph" | "Modules & Scale" | "Production Arch";
+  category: "Foundations" | "Core Workflow" | "Variables & State" | "Networking & Graph" | "Modules & Scale" | "Production Arch" | "Multi-Cloud";
   iconName: string;
   scenario: string;
   visualGoal: string;
